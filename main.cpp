@@ -1,3 +1,5 @@
+//This is Project is created by Huajiahao & Yanyuen
+
 #include <SDL.h>
 #include <iostream>
 #include <cmath>
