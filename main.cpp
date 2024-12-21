@@ -19,7 +19,28 @@ Direction head_direction = DOWN; // 默认朝向下
 // 添加方向变量
 int bodyDirection = 0; // 默认静止
 
+/* —————————— 怪物 —————————— */
+class MONSTER
+{
+public:
+    string name;
+    int HP;
+    double speed;
+    int attack_type;
+    int move_type;
+    SDL_Rect bump_case;
+    void getHP()
+    {
+        cout << HP;
+    }
+    MONSTER(string n,int H,double s,int at,int mo,SDL_Rect bc){
+        name = n; HP = H; speed = s; attack_type = at; move_type = mo; bump_case = bc;
+    }
+}dragonfly;
 
+SDL_Rect bc;
+MONSTER monster("hjh", 15, 15, 1, 1, bc);
+cout << monster.HP << endl;
 
 /* —————————— 动画 —————————— */
 
