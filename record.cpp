@@ -26,14 +26,15 @@ int main(int, char**) {
 
 
 	/* 关于窗口 */
-	const int window_width = 200;
-	const int window_height = 150;//窗口大小
-	int x = 0;
+	const int window_width = 800;
+	const int window_height = 450;//窗口大小
+	int x = screen_rect.w / 2 - window_width / 2;
 	int y = screen_rect.h / 2 - window_height / 2;//窗口初始位置
 	SDL_Window* window = SDL_CreateWindow("Mouse_Cage", x, y,
 		window_width, window_height, SDL_WINDOW_SHOWN);
 	//创建窗口，窗口名字为Mouse_Cage，窗口位置为x,y，窗口大小为window_width,window_height，窗口状态为显示
-	SDL_SetWindowMouseGrab(window, SDL_TRUE);//窗口控制鼠标
+	//SDL_SetWindowMouseGrab(window, SDL_TRUE);
+	//窗口控制鼠标
 	//注意下方有SDL_DestroyWindow(window)函数，有创建就要有销毁，否则会出现内存泄漏
 
 
@@ -43,11 +44,24 @@ int main(int, char**) {
 	
 
 	/* 关于纹理 */
-	SDL_Texture* texture = IMG_LoadTexture(renderer, "ISAAC/Characters/isaac1.png");
+	SDL_Texture* texture = IMG_LoadTexture(renderer, "ISAAC/Characters/isaac.png");
 	//Surface和Texture的区别：Surface是CPU内存中的像素数据，Texture是GPU内存中的像素数据
 	//Texture的优势：Texture可以直接在GPU上渲染，速度更快，Surface需要先转换成Texture才能在GPU上渲染
 	//注意下方有SDL_DestroyTexture(texture)函数，有创建就要有销毁，否则会出现内存泄漏
 
+
+	//插入一个有8帧的GIF动画
+	IMG_Animation* BackMotion = IMG_LoadAnimation("ISAAC/Characters/BackMotion.gif");
+	vector<SDL_Texture*> textures;
+	for (int i = 0; i < BackMotion->count; ++i) {
+		SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, BackMotion->frames[i]);
+		if (texture) {
+			textures.push_back(texture);
+		}
+	}
+	int currentFrame = 0;//当前帧
+	Uint32 lastFrameTime = SDL_GetTicks();//上一帧的时间,单位为毫秒,SDL_GetTicks()函数返回自SDL库初始化以来经过的毫秒数
+	
 
 	while (!isquit) {//循环,直到退出标志为真
 
@@ -55,6 +69,7 @@ int main(int, char**) {
 			if (event.type == SDL_QUIT) {//如果遇到退出事件就关闭窗口
 				isquit = true;
 			}
+			/*
 			if (event.type == SDL_MOUSEBUTTONDOWN) {//如果遇到鼠标按下事件
 				SDL_Log("Mouse button down");
 			}
@@ -67,9 +82,10 @@ int main(int, char**) {
 			if (event.type == SDL_KEYUP) {//如果遇到键盘抬起事件
 				SDL_Log("You released: %s", SDL_GetKeyName(event.key.keysym.sym));
 			}
+			*/
 		}
 
-		/* 渲染器的使用（画图）*/
+		/* 渲染器的使用（画图）
 		//注意后画的图案会覆盖先画的图案
 		SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
 		//设置画笔颜色，RGB为0,255,0，透明度为255，数值范围为0-255，数值越大颜色越深
@@ -89,28 +105,41 @@ int main(int, char**) {
 
 		SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);//设置画笔颜色
 		SDL_RenderDrawPoint(renderer, 50, 100);//画点,坐标为50,100
+		*/
 
-		SDL_RenderCopy(renderer, texture, NULL, NULL);//复制纹理到渲染器,注意传递的是矩形的指针,
+
+
+		Uint32 currentTime = SDL_GetTicks();
+		if (currentTime - lastFrameTime >= BackMotion->delays[currentFrame]) {
+			currentFrame = (currentFrame + 1) % BackMotion->count;
+			lastFrameTime = currentTime;
+		}
+		SDL_RenderClear(renderer);
+		SDL_RenderCopy(renderer, textures[currentFrame], nullptr, nullptr);
+
+		//SDL_RenderCopy(renderer, texture, NULL, NULL);
+		//复制纹理到渲染器,注意传递的是矩形的指针,
 		//注意：纹理的复制是在渲染器上进行的，而不是在窗口上进行的
 		//四个参数分别是：渲染器、纹理，第三个NULL表示复制整个纹理，第四个NULL表示复制到整个渲染器
-
-		
 		
 		SDL_RenderPresent(renderer);//刷新渲染器(将画布上的内容显示到窗口上)
 
 
-
-		/* 窗口的运动 */
+		/* 窗口的运动 
 		x += 1;
 		y = screen_rect.h / 2 - window_height / 2 + 200 * sin(4 * PI * x / screen_rect.w);//窗口运动轨迹函数
 		if (x >= screen_rect.w) x = -window_width;//循环运动
 		SDL_SetWindowPosition(window, x, y);//设置窗口位置
 		SDL_Delay(2.5);//延时
 		//每次位置更新的步长和延时时间决定窗口的运动速度和运动流畅度
+		*/
 	}
 
 
 	SDL_DestroyTexture(texture);//销毁纹理
+	for (auto t : textures) {
+		SDL_DestroyTexture(t);
+	}
 	SDL_DestroyRenderer(renderer);//销毁着色器
 	SDL_DestroyWindow(window);//销毁窗口
 	SDL_Quit();//退出SDL
