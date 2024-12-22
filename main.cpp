@@ -304,28 +304,28 @@ void processInput(SDL_Event& event, bool& isquit, bool keyStates[8], Direction& 
                 keyStates[4] = true;
                 head_direction = UP;
                 direction = { PI * 3 / 2 };
-                Bullets.push_back(BULLET(headrect.x + headrect.w / 2, headrect.y + headrect.h / 2 - 5,
+                Bullets.push_back(BULLET(headrect.x + headrect.w / 2 - 14, headrect.y + headrect.h / 2 - 15,
                     isaac.shootspeed, isaac.damage, isaac.range, direction));
                 break;
             case SDLK_LEFT:
                 keyStates[5] = true;
                 head_direction = LEFT;
                 direction = { PI };
-                Bullets.push_back(BULLET(headrect.x + headrect.w / 2 - 5, headrect.y + headrect.h / 2,
+                Bullets.push_back(BULLET(headrect.x + headrect.w / 2 - 32, headrect.y + headrect.h / 2 - 10,
                     isaac.shootspeed, isaac.damage, isaac.range, direction));
                 break;
             case SDLK_DOWN:
                 keyStates[6] = true;
                 head_direction = DOWN;
                 direction = { PI / 2 };
-                Bullets.push_back(BULLET(headrect.x + headrect.w / 2, headrect.y + headrect.h / 2 + 5,
+                Bullets.push_back(BULLET(headrect.x + headrect.w / 2 - 14, headrect.y + headrect.h / 2,
                     isaac.shootspeed, isaac.damage, isaac.range, direction));
                 break;
             case SDLK_RIGHT:
                 keyStates[7] = true;
                 head_direction = RIGHT;
                 direction = { 0 };
-                Bullets.push_back(BULLET(headrect.x + headrect.w / 2 + 5, headrect.y + headrect.h / 2,
+                Bullets.push_back(BULLET(headrect.x + headrect.w / 2 + 5, headrect.y + headrect.h / 2 - 10,
                     isaac.shootspeed, isaac.damage, isaac.range, direction));
                 break;
             }
@@ -435,6 +435,37 @@ void renderBullets(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Te
         SDL_RenderCopy(renderer, bulletTexture, NULL, &bullet.bumpbox);
     }
 }
+
+
+//渲染画面
+void renderScene(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Texture* bulletTexture,
+    SDL_Rect& headrect, SDL_Rect& bodyrect, vector<SDL_Texture*>& BackMotions, vector<SDL_Texture*>& FrontMotions,
+    vector<SDL_Texture*>& RightMotions, vector<SDL_Texture*>& LeftMotions, vector<SDL_Texture*>& BackHeadMotions,
+    vector<SDL_Texture*>& FrontHeadMotions, vector<SDL_Texture*>& RightHeadMotions, vector<SDL_Texture*>& LeftHeadMotions,
+    const bool keyStates[8], int bodyDirection) {
+    // 子弹向上时先渲染子弹，再渲染角色
+    for (const auto& bullet : bullets) {
+        if (bullet.direction.radian == 3 * PI / 2 && bullet.bumpbox.y + bullet.bumpbox.h < headrect.y + headrect.h) {
+            SDL_RenderCopy(renderer, bulletTexture, NULL, &bullet.bumpbox);
+        }
+    }
+    // 更新角色动画
+    updatePlayerMotion(renderer, BackMotions, FrontMotions, RightMotions, LeftMotions, BackHeadMotions,
+        FrontHeadMotions, RightHeadMotions, LeftHeadMotions, headrect, bodyrect, keyStates, bodyDirection);
+    // 其他方向的子弹渲染（不受遮挡）
+    for (const auto& bullet : bullets) {
+        if (bullet.direction.radian != 3 * PI / 2 || bullet.bumpbox.y + bullet.bumpbox.h >= headrect.y + headrect.h) {
+            SDL_RenderCopy(renderer, bulletTexture, NULL, &bullet.bumpbox);
+        }
+    }
+}
+
+
+
+
+
+
+
 
 
 int main(int, char**) {
@@ -578,7 +609,7 @@ int main(int, char**) {
 
 
 
-    PLAYER isaac(bodyrect.x, bodyrect.y, headrect.w, headrect.h + bodyrect.h, 6, 2, 3.5, 3, 1, 6);
+    PLAYER isaac(bodyrect.x, bodyrect.y, headrect.w, headrect.h + bodyrect.h, 6, 2, 3.5, 3, 6, 6);
 
     while (!isquit) {
 
@@ -588,19 +619,19 @@ int main(int, char**) {
         // 更新子弹位置
         updateBullets(Bullets, window_width, window_height);
 
-        // 渲染
+        // 渲染背景
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, basement, NULL, NULL);
 
-        // 更新角色位置和动画
+        // 更新角色位置
         updatePlayerPosition(headrect, bodyrect, keyStates, window_width, window_height, bodyDirection);
-        updatePlayerMotion(renderer, BackMotions, FrontMotions, RightMotions, LeftMotions, BackHeadMotions,
-            FrontHeadMotions, RightHeadMotions, LeftHeadMotions, headrect, bodyrect, keyStates, bodyDirection);
+        
+        // 渲染画面
+		renderScene(renderer, Bullets, bulletTexture, headrect, bodyrect, BackMotions, FrontMotions,
+			RightMotions, LeftMotions, BackHeadMotions, FrontHeadMotions, RightHeadMotions, LeftHeadMotions,
+			keyStates, bodyDirection);
 
-        // 渲染子弹
-        renderBullets(renderer, Bullets, bulletTexture);
-
-        //刷新画布     
+        // 刷新画布     
         SDL_RenderPresent(renderer);
 
         // 控制帧率
