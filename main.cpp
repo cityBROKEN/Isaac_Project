@@ -20,27 +20,9 @@ Direction head_direction = DOWN; // 默认朝向下
 int bodyDirection = 0; // 默认静止
 
 /* —————————— 怪物 —————————— */
-class MONSTER
-{
-public:
-    string name;
-    int HP;
-    double speed;
-    int attack_type;
-    int move_type;
-    SDL_Rect bump_case;
-    void getHP()
-    {
-        cout << HP;
-    }
-    MONSTER(string n,int H,double s,int at,int mo,SDL_Rect bc){
-        name = n; HP = H; speed = s; attack_type = at; move_type = mo; bump_case = bc;
-    }
-}dragonfly;
 
-SDL_Rect bc;
-MONSTER monster("hjh", 15, 15, 1, 1, bc);
-cout << monster.HP << endl;
+
+
 
 /* —————————— 动画 —————————— */
 
@@ -95,51 +77,49 @@ void leftMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& LeftMotions, SDL_R
 // 向上射击动画
 void shootUpMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BackHeadMotions, SDL_Rect& headrect) {
     static int currentFrame = 0;
-    static Uint32 lastFrameTime = SDL_GetTicks();
+    static Uint32 lastFrameTime = 0;
     Uint32 currentTime = SDL_GetTicks();
-
-    // 每100ms切换帧
-    if (currentTime - lastFrameTime >= 200) {
+    // 每200ms切换帧，按下按键时重置
+    if (currentTime - lastFrameTime >= 200 || currentFrame == 0) {
         currentFrame = (currentFrame + 1) % BackHeadMotions.size();
         lastFrameTime = currentTime;
     }
-
     SDL_RenderCopy(renderer, BackHeadMotions[currentFrame], NULL, &headrect);
 }
 // 向左射击动画
 void shootLeftMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& LeftHeadMotions, SDL_Rect& headrect) {
-	static int currentFrame = 0;
-	static Uint32 lastFrameTime = SDL_GetTicks();
-	Uint32 currentTime = SDL_GetTicks();
-	// 每100ms切换帧
-	if (currentTime - lastFrameTime >= 200) {
-		currentFrame = (currentFrame + 1) % LeftHeadMotions.size();
-		lastFrameTime = currentTime;
-	}
+    static int currentFrame = 0;
+    static Uint32 lastFrameTime = 0;
+    Uint32 currentTime = SDL_GetTicks();
+    // 每200ms切换帧，按下按键时重置
+    if (currentTime - lastFrameTime >= 200 || currentFrame == 0) {
+        currentFrame = (currentFrame + 1) % LeftHeadMotions.size();
+        lastFrameTime = currentTime;
+    }
 	SDL_RenderCopy(renderer, LeftHeadMotions[currentFrame], NULL, &headrect);
 }
 // 向下射击动画
 void shootDownMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FrontHeadMotions, SDL_Rect& headrect) {
-	static int currentFrame = 0;
-	static Uint32 lastFrameTime = SDL_GetTicks();
-	Uint32 currentTime = SDL_GetTicks();
-	// 每100ms切换帧
-	if (currentTime - lastFrameTime >= 200) {
-		currentFrame = (currentFrame + 1) % FrontHeadMotions.size();
-		lastFrameTime = currentTime;
-	}
+    static int currentFrame = 0;
+    static Uint32 lastFrameTime = 0;
+    Uint32 currentTime = SDL_GetTicks();
+    // 每200ms切换帧，按下按键时重置
+    if (currentTime - lastFrameTime >= 200 || currentFrame == 0) {
+        currentFrame = (currentFrame + 1) % FrontHeadMotions.size();
+        lastFrameTime = currentTime;
+    }
 	SDL_RenderCopy(renderer, FrontHeadMotions[currentFrame], NULL, &headrect);
 }
 // 向右射击动画
 void shootRightMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& RightHeadMotions, SDL_Rect& headrect) {
-	static int currentFrame = 0;
-	static Uint32 lastFrameTime = SDL_GetTicks();
-	Uint32 currentTime = SDL_GetTicks();
-	// 每100ms切换帧
-	if (currentTime - lastFrameTime >= 200) {
-		currentFrame = (currentFrame + 1) % RightHeadMotions.size();
-		lastFrameTime = currentTime;
-	}
+    static int currentFrame = 0;
+    static Uint32 lastFrameTime = 0;
+    Uint32 currentTime = SDL_GetTicks();
+    // 每200ms切换帧，按下按键时重置
+    if (currentTime - lastFrameTime >= 200 || currentFrame == 0) {
+        currentFrame = (currentFrame + 1) % RightHeadMotions.size();
+        lastFrameTime = currentTime;
+    }
 	SDL_RenderCopy(renderer, RightHeadMotions[currentFrame], NULL, &headrect);
 }
 
@@ -164,10 +144,22 @@ void processInput(SDL_Event& event, bool& isquit, bool keyStates[8], Direction& 
             case SDLK_a: keyStates[1] = true; break;
             case SDLK_s: keyStates[2] = true; break;
             case SDLK_d: keyStates[3] = true; break;
-            case SDLK_UP: keyStates[4] = true; head_direction = UP; break;
-            case SDLK_LEFT: keyStates[5] = true; head_direction = LEFT; break;
-            case SDLK_DOWN: keyStates[6] = true; head_direction = DOWN; break;
-            case SDLK_RIGHT: keyStates[7] = true; head_direction = RIGHT; break;
+            case SDLK_UP:
+                keyStates[4] = true;
+                head_direction = UP;
+                break;
+            case SDLK_LEFT:
+                keyStates[5] = true;
+                head_direction = LEFT;
+                break;
+            case SDLK_DOWN:
+                keyStates[6] = true;
+                head_direction = DOWN;
+                break;
+            case SDLK_RIGHT:
+                keyStates[7] = true;
+                head_direction = RIGHT;
+                break;
             }
         }
         if (event.type == SDL_KEYUP) {
@@ -220,56 +212,36 @@ void updatePlayerMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BackMotion
     vector<SDL_Texture*>& FrontHeadMotions, vector<SDL_Texture*>& RightHeadMotions, vector<SDL_Texture*>& LeftHeadMotions,
     SDL_Rect& headrect, SDL_Rect& bodyrect, const bool keyStates[8], int bodyDirection) {
 
-    // 渲染身体动画
+    // 先处理身体动画
     switch (bodyDirection) {
-    case 1:
-        backMotion(renderer, BackMotions, headrect, bodyrect);
-        break;
-    case 2:
-        frontMotion(renderer, FrontMotions, headrect, bodyrect);
-        break;
-    case 3:
-        leftMotion(renderer, LeftMotions, headrect, bodyrect);
-        break;
-    case 4:
-        rightMotion(renderer, RightMotions, headrect, bodyrect);
-        break;
-    default:
-        SDL_RenderCopy(renderer, FrontMotions[3], NULL, &bodyrect);
-        break;
+    case 1: backMotion(renderer, BackMotions, headrect, bodyrect); break;
+    case 2: frontMotion(renderer, FrontMotions, headrect, bodyrect); break;
+    case 3: leftMotion(renderer, LeftMotions, headrect, bodyrect); break;
+    case 4: rightMotion(renderer, RightMotions, headrect, bodyrect); break;
+    default: SDL_RenderCopy(renderer, FrontMotions[3], NULL, &bodyrect); break;
     }
 
-    // 渲染头部射击动画
-    if (keyStates[4]) { // 向上射击
+    // 按键优先触发头部攻击动画
+    if (keyStates[4]) {
         shootUpMotion(renderer, BackHeadMotions, headrect);
     }
-    else if (keyStates[5]) { // 向左射击
+    else if (keyStates[5]) {
         shootLeftMotion(renderer, LeftHeadMotions, headrect);
     }
-    else if (keyStates[6]) { // 向下射击
+    else if (keyStates[6]) {
         shootDownMotion(renderer, FrontHeadMotions, headrect);
     }
-    else if (keyStates[7]) { // 向右射击
+    else if (keyStates[7]) {
         shootRightMotion(renderer, RightHeadMotions, headrect);
     }
     else {
-        // 默认头部静止渲染
+        // 默认渲染头部静止状态
         switch (bodyDirection) {
-        case 1:
-            SDL_RenderCopy(renderer, BackHeadMotions[0], NULL, &headrect);
-            break;
-        case 2:
-            SDL_RenderCopy(renderer, FrontHeadMotions[0], NULL, &headrect);
-            break;
-        case 3:
-            SDL_RenderCopy(renderer, LeftHeadMotions[0], NULL, &headrect);
-            break;
-        case 4:
-            SDL_RenderCopy(renderer, RightHeadMotions[0], NULL, &headrect);
-            break;
-        default:
-            SDL_RenderCopy(renderer, FrontHeadMotions[0], NULL, &headrect);
-            break;
+        case 1: SDL_RenderCopy(renderer, BackHeadMotions[0], NULL, &headrect); break;
+        case 2: SDL_RenderCopy(renderer, FrontHeadMotions[0], NULL, &headrect); break;
+        case 3: SDL_RenderCopy(renderer, LeftHeadMotions[0], NULL, &headrect); break;
+        case 4: SDL_RenderCopy(renderer, RightHeadMotions[0], NULL, &headrect); break;
+        default: SDL_RenderCopy(renderer, FrontHeadMotions[0], NULL, &headrect); break;
         }
     }
 }
