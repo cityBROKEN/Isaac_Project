@@ -79,6 +79,10 @@ public:
     double range;//子弹射程
     SDL_Rect bumpbox;//碰撞箱
     DIRECTION direction;//子弹飞行方向
+    bool isAlive = true;//子弹是否存活
+    bool isBursting = false;//子弹是否正在爆裂
+    Uint32 burstStartTime = 0;//爆裂动画开始时间
+
     //子弹行为函数
     BULLET(int x, int y, double speed, double damage, double range, DIRECTION direction) {
         this->x = x;
@@ -92,21 +96,44 @@ public:
         this->bumpbox.h = 30;
         this->direction = direction;
     }
+
     void updatePosition() {
-        bumpbox.x += speed * cos(direction.radian);
-        bumpbox.y += speed * sin(direction.radian);
-        x = bumpbox.x;
-        y = bumpbox.y;
-        range -= speed;
+        if (!isBursting) {
+            bumpbox.x += speed * cos(direction.radian);
+            bumpbox.y += speed * sin(direction.radian);
+            x = bumpbox.x;
+            y = bumpbox.y;
+            range -= speed;
+            if (range <= 0) {
+                burst(); // 当射程耗尽，触发爆裂
+            }
+        }
     }
-    void move() {
-        //子弹移动
+
+    void update() {
+        if (isAlive) {
+            updatePosition();
+        }
     }
-    void hit() {
-        //子弹击中
+
+    //子弹碰撞检测
+    bool isCollide(SDL_Rect rect) {
+        if (bumpbox.x + bumpbox.w < rect.x || bumpbox.x > rect.x + rect.w ||
+            bumpbox.y + bumpbox.h < rect.y || bumpbox.y > rect.y + rect.h) {
+            return false;
+        }
+        return true;
     }
+
+    //子弹爆裂
+    void burst() {
+        isBursting = true;
+        burstStartTime = SDL_GetTicks();
+    }
+
+    //子弹死亡
     void die() {
-        //子弹消失
+        isAlive = false;
     }
 };
 
@@ -283,6 +310,18 @@ void shootRightMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& RightHeadMot
     }
     SDL_RenderCopy(renderer, RightHeadMotions[currentFrame], NULL, &headrect);
 }
+// 子弹爆裂动画
+void bulletBurstMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BurstMotions, SDL_Rect& bulletrect) {
+	static int currentFrame = 0;
+	static Uint32 lastFrameTime = 0;
+	Uint32 currentTime = SDL_GetTicks();
+	// 每10ms切换帧，按下按键时重置
+	if (currentTime - lastFrameTime >= 10 || currentFrame == 0) {
+		currentFrame = (currentFrame + 1) % BurstMotions.size();
+		lastFrameTime = currentTime;
+	}
+	SDL_RenderCopy(renderer, BurstMotions[currentFrame], NULL, &bulletrect);
+}
 
 /* —————————————————————————————— */
 
@@ -442,13 +481,44 @@ void updatePlayerMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BackMotion
 
 
 // 更新子弹位置
-void updateBullets(vector<BULLET>& bullets, int window_width, int window_height) {
+void updateBullets(vector<BULLET>& bullets, int window_width, int window_height, vector<SDL_Texture*>& BurstMotions) {
     for (auto it = bullets.begin(); it != bullets.end();) {
-        it->updatePosition();
-        // 如果子弹飞出窗口，则移除
-        if (it->bumpbox.x < 0 || it->bumpbox.x > window_width ||
-            it->bumpbox.y < 0 || it->bumpbox.y > window_height) {
-            it = bullets.erase(it); // 删除并返回下一个迭代器
+        it->update();
+
+        // 检查子弹是否碰到墙壁（窗口边界），如果碰到则爆裂
+        if (!it->isBursting && (it->bumpbox.x < 0 || it->bumpbox.x > window_width - it->bumpbox.w ||
+            it->bumpbox.y < 0 || it->bumpbox.y > window_height - it->bumpbox.h)) {
+            it->burst();
+        }
+
+        // 这里可以添加子弹与怪物的碰撞检测，示例代码如下：
+        /*
+        for (auto& monster : monsters) {
+            if (it->isCollide(monster.bumpbox)) {
+                it->burst();
+                monster.HP -= it->damage;
+                if (monster.HP <= 0) {
+                    monster.die();
+                }
+                break;
+            }
+        }
+        */
+
+        // 如果子弹正在播放爆裂动画，检查动画是否结束
+        if (it->isBursting) {
+            Uint32 currentTime = SDL_GetTicks();
+            // 假设爆裂动画持续时间为 `burstDuration`，根据动画帧数和帧间隔计算
+            Uint32 burstDuration = BurstMotions.size() * 100; // 每帧100ms
+            if (currentTime - it->burstStartTime >= burstDuration) {
+                // 动画结束，删除子弹
+                it = bullets.erase(it);
+                continue;
+            }
+        }
+
+        if (!it->isAlive) {
+            it = bullets.erase(it);
         }
         else {
             ++it;
@@ -456,9 +526,19 @@ void updateBullets(vector<BULLET>& bullets, int window_width, int window_height)
     }
 }
 // 子弹渲染
-void renderBullets(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Texture* bulletTexture) {
+void renderBullets(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Texture* bulletTexture,
+                   vector<SDL_Texture*>& BurstMotions) {
     for (const auto& bullet : bullets) {
-        SDL_RenderCopy(renderer, bulletTexture, NULL, &bullet.bumpbox);
+        if (bullet.isBursting) {
+            // 计算当前应显示的爆裂动画帧
+            Uint32 currentTime = SDL_GetTicks();
+            Uint32 elapsedTime = currentTime - bullet.burstStartTime;
+            int frame = (elapsedTime / 100) % BurstMotions.size(); // 每帧100ms
+            SDL_RenderCopy(renderer, BurstMotions[frame], NULL, &bullet.bumpbox);
+        }
+        else {
+            SDL_RenderCopy(renderer, bulletTexture, NULL, &bullet.bumpbox);
+        }
     }
 }
 
@@ -468,11 +548,11 @@ void renderScene(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Text
     SDL_Rect& headrect, SDL_Rect& bodyrect, vector<SDL_Texture*>& BackMotions, vector<SDL_Texture*>& FrontMotions,
     vector<SDL_Texture*>& RightMotions, vector<SDL_Texture*>& LeftMotions, vector<SDL_Texture*>& BackHeadMotions,
     vector<SDL_Texture*>& FrontHeadMotions, vector<SDL_Texture*>& RightHeadMotions, vector<SDL_Texture*>& LeftHeadMotions,
-    const bool keyStates[8], int bodyDirection, bool& is_attacking) {
+    const bool keyStates[8], int bodyDirection, bool& is_attacking, vector<SDL_Texture*>& BurstMotions) {
     // 子弹向上时先渲染子弹，再渲染角色
     for (const auto& bullet : bullets) {
         if (bullet.direction.radian == 3 * PI / 2 && bullet.bumpbox.y + bullet.bumpbox.h < headrect.y + headrect.h) {
-            SDL_RenderCopy(renderer, bulletTexture, NULL, &bullet.bumpbox);
+            renderBullets(renderer, { bullet }, bulletTexture, BurstMotions);
         }
     }
     // 更新角色动画
@@ -481,7 +561,7 @@ void renderScene(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Text
     // 其他方向的子弹渲染（不受遮挡）
     for (const auto& bullet : bullets) {
         if (bullet.direction.radian != 3 * PI / 2 || bullet.bumpbox.y + bullet.bumpbox.h >= headrect.y + headrect.h) {
-            SDL_RenderCopy(renderer, bulletTexture, NULL, &bullet.bumpbox);
+            renderBullets(renderer, { bullet }, bulletTexture, BurstMotions);
         }
     }
 }
@@ -534,7 +614,7 @@ int main(int, char**) {
 
     /* 创建纹理 */
     SDL_Texture* basement = IMG_LoadTexture(renderer, "ISAAC/Backgrounds/basement.png");
-    SDL_Texture* bulletTexture = IMG_LoadTexture(renderer, "ISAAC/Characters/bullet1.png");
+    SDL_Texture* bulletTexture = IMG_LoadTexture(renderer, "ISAAC/Characters/bullet.png");
 
     /* 初始化动画纹理数组 */
     vector<SDL_Texture*> BackMotions;
@@ -625,6 +705,19 @@ int main(int, char**) {
             SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
         }
     }
+    vector<SDL_Texture*> BurstMotions;
+    for (int i = 1; i <= 15; ++i) {
+        string filename = "ISAAC/Characters/Bulletatlas/BurstMotion" + to_string(i) + ".png";
+        SDL_Texture* texture = IMG_LoadTexture(renderer, filename.c_str());
+        if (texture) {
+            BurstMotions.push_back(texture);
+        }
+        else {
+            SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
+        }
+    }
+
+
 
     /* 初始化纹理位置 */
     //头部位
@@ -646,7 +739,7 @@ int main(int, char**) {
     Uint32 last_shoot_time = SDL_GetTicks(); // 上次射击时间
 	bool is_attacking = false; // 是否正在攻击
 	Uint32 attack_start_time = 0; // 攻击开始时间
-    PLAYER isaac(bodyrect.x, bodyrect.y, headrect.w, headrect.h + bodyrect.h, 6, 2, 3.5, 3, 6, 6);
+    PLAYER isaac(bodyrect.x, bodyrect.y, headrect.w, headrect.h + bodyrect.h, 6, 2, 3.5, 3, 7, 600);
 
     while (!isquit) {
 
@@ -657,7 +750,7 @@ int main(int, char**) {
         processShooting(keyStates, head_direction, headrect, isaac, last_shoot_time, is_attacking, attack_start_time);
 
         // 更新子弹位置
-        updateBullets(Bullets, window_width, window_height);
+        updateBullets(Bullets, window_width, window_height, BurstMotions);
 
         // 渲染背景
         SDL_RenderClear(renderer);
@@ -669,7 +762,7 @@ int main(int, char**) {
         // 渲染画面
 		renderScene(renderer, Bullets, bulletTexture, headrect, bodyrect, BackMotions, FrontMotions,
 			RightMotions, LeftMotions, BackHeadMotions, FrontHeadMotions, RightHeadMotions, LeftHeadMotions,
-			keyStates, bodyDirection, is_attacking);
+			keyStates, bodyDirection, is_attacking, BurstMotions);
 
         // 刷新画布     
         SDL_RenderPresent(renderer);
