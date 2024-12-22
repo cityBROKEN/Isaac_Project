@@ -14,20 +14,14 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
-
 #endif
-
-
 #ifdef __cplusplus
 }
 #endif
-
-
 using namespace std;
 #define PI 3.14159265358979323846
 
-// 定义速度常量
-const int PLAYER_SPEED = 5;
+
 //枚举方向
 enum Direction { UP, DOWN, LEFT, RIGHT };
 Direction head_direction = DOWN; // 默认朝向下
@@ -37,6 +31,7 @@ int bodyDirection = 0; // 默认静止
 struct DIRECTION {
     double radian;
 };
+
 
 /* —————————— 视频 —————————— */
 void playVideo(const char* videoPath, SDL_Renderer* renderer) {
@@ -138,6 +133,7 @@ void playVideo(const char* videoPath, SDL_Renderer* renderer) {
     SDL_DestroyTexture(texture);
 }
 
+
 /* —————————— 声音 —————————— */
 Mix_Music  *main_msuic = NULL;
 Mix_Music* opening_video_sound = NULL;
@@ -184,8 +180,8 @@ public:
 
 
 
-/* —————————— 子弹 —————————— */
 
+/* —————————— 子弹 —————————— */
 //子弹类
 class BULLET {
 public:
@@ -254,7 +250,6 @@ public:
         isAlive = false;
     }
 };
-
 vector<BULLET> Bullets;
 
 
@@ -305,6 +300,7 @@ public:
 //苍蝇怪
 class FLY :public MONSTER {
 public:
+	int state = 0;//怪物状态
     FLY() {
         id = 1;
         strcpy_s(name, "FLY");
@@ -323,7 +319,29 @@ public:
         return fly;
     }
 };
-
+vector<FLY> Flies;
+//蜘蛛怪
+class SPIDER :public MONSTER {
+public:
+	SPIDER() {
+		id = 2;
+		strcpy_s(name, "SPIDER");
+		x = 0;
+		y = 0;
+		HP = 20;
+		move_type = 2;
+		speed = 3;
+		attack_type = 1;
+		damage = 2;
+	}
+	SPIDER* createSpider(int x, int y) {
+		SPIDER* spider = new SPIDER();
+		spider->x = x;
+		spider->y = y;
+		return spider;
+	}
+};
+vector<SPIDER> Spiders;
 
 
 
@@ -532,25 +550,26 @@ void processShooting(bool keyStates[8], Direction& head_direction, SDL_Rect& hea
 
 
 // 更新角色位置和方向
-void updatePlayerPosition(SDL_Rect& headrect, SDL_Rect& bodyrect, const bool keyStates[4], int window_width, int window_height, int& bodyDirection) {
+void updatePlayerPosition(SDL_Rect& headrect, SDL_Rect& bodyrect, const bool keyStates[4], int window_width,
+    int window_height, int& bodyDirection, PLAYER isaac) {
     if (keyStates[0] && headrect.y > 0) {
-        headrect.y -= PLAYER_SPEED;
-        bodyrect.y -= PLAYER_SPEED;
+        headrect.y -= 2.5 * isaac.speed;
+        bodyrect.y -= 2.5 * isaac.speed;
         bodyDirection = 1; // 上
     }
     else if (keyStates[1] && headrect.x > 0) {
-        headrect.x -= PLAYER_SPEED;
-        bodyrect.x -= PLAYER_SPEED;
+        headrect.x -= 2.5 * isaac.speed;
+        bodyrect.x -= 2.5 * isaac.speed;
         bodyDirection = 3; // 左
     }
     else if (keyStates[2] && bodyrect.y < window_height - bodyrect.h) {
-        headrect.y += PLAYER_SPEED;
-        bodyrect.y += PLAYER_SPEED;
+        headrect.y += 2.5 * isaac.speed;
+        bodyrect.y += 2.5 * isaac.speed;
         bodyDirection = 2; // 下
     }
     else if (keyStates[3] && headrect.x < window_width - headrect.w) {
-        headrect.x += PLAYER_SPEED;
-        bodyrect.x += PLAYER_SPEED;
+        headrect.x += 2.5 * isaac.speed;
+        bodyrect.x += 2.5 * isaac.speed;
         bodyDirection = 4; // 右
     }
     else {
@@ -627,7 +646,7 @@ void updateBullets(vector<BULLET>& bullets, int window_width, int window_height,
         if (it->isBursting) {
             Uint32 currentTime = SDL_GetTicks();
             // 假设爆裂动画持续时间为 `burstDuration`，根据动画帧数和帧间隔计算
-            Uint32 burstDuration = BurstMotions.size() * 100; // 每帧100ms
+            Uint32 burstDuration = BurstMotions.size() * 50; // 每帧50ms
             if (currentTime - it->burstStartTime >= burstDuration) {
                 // 动画结束，删除子弹
                 it = bullets.erase(it);
@@ -691,6 +710,7 @@ void renderScene(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Text
 
 
 
+/* —————————— 主函数 —————————— */
 
 int main(int, char**) {
     // 初始化SDL
@@ -718,7 +738,7 @@ int main(int, char**) {
     const int window_height = 768;
     int x = screen_rect.w / 2 - window_width / 2;
     int y = screen_rect.h / 2 - window_height / 2;
-    SDL_Window* window = SDL_CreateWindow("Mouse_Cage", x, y,
+    SDL_Window* window = SDL_CreateWindow("The Binding of Isaac", x, y,
         window_width, window_height, SDL_WINDOW_SHOWN);
 
     // 创建渲染
@@ -875,7 +895,7 @@ int main(int, char**) {
     Uint32 last_shoot_time = SDL_GetTicks(); // 上次射击时间
 	bool is_attacking = false; // 是否正在攻击
 	Uint32 attack_start_time = 0; // 攻击开始时间
-    PLAYER isaac(bodyrect.x, bodyrect.y, headrect.w, headrect.h + bodyrect.h, 6, 2, 3.5, 3, 7, 600);
+    PLAYER isaac(bodyrect.x, bodyrect.y, headrect.w, headrect.h + bodyrect.h, 6, 2, 3.5, 3, 7, 500);
 
     while (!isquit) {
 
@@ -893,7 +913,7 @@ int main(int, char**) {
         SDL_RenderCopy(renderer, basement, NULL, NULL);
 
         // 更新角色位置
-        updatePlayerPosition(headrect, bodyrect, keyStates, window_width, window_height, bodyDirection);
+        updatePlayerPosition(headrect, bodyrect, keyStates, window_width, window_height, bodyDirection,isaac);
         
         // 渲染画面
 		renderScene(renderer, Bullets, bulletTexture, headrect, bodyrect, BackMotions, FrontMotions,
@@ -914,5 +934,3 @@ int main(int, char**) {
     SDL_Quit();
     return 0;
 }
-
-
