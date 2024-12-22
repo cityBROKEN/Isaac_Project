@@ -2,6 +2,7 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h>
+#include <SDL_mixer.h>
 #include <iostream>
 #include <cmath>
 #include <vector>
@@ -22,6 +23,14 @@ int bodyDirection = 0; // 默认静止
 struct DIRECTION {
     double radian;
 };
+
+
+/* —————————— 声音 —————————— */
+Mix_Music  *main_msuic = NULL;
+void playMusic()
+{
+    main_msuic = Mix_LoadMUS("ISAAC/Sound/test.wav");
+}
 
 
 /* —————————— 角色 —————————— */
@@ -463,10 +472,21 @@ int main(int, char**) {
     // 创建渲染
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
+    //初始化音乐与音效
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        SDL_Log("SDL_mixer could not initialize! SDL_mixer Error: %s", Mix_GetError());
+        return 1;
+    }
+    playMusic();
+    if (main_msuic == NULL) {
+        SDL_Log("Failed to load beat music! SDL_mixer Error: %s", Mix_GetError());
+        return 1;
+    }
+    Mix_PlayMusic(main_msuic, -1);
+
     /* 创建纹理 */
     SDL_Texture* basement = IMG_LoadTexture(renderer, "ISAAC/Backgrounds/basement.png");
     SDL_Texture* bulletTexture = IMG_LoadTexture(renderer, "ISAAC/Characters/bullet1.png");
-
 
     /* 初始化动画纹理数组 */
     vector<SDL_Texture*> BackMotions;
@@ -558,8 +578,6 @@ int main(int, char**) {
         }
     }
 
-
-
     /* 初始化纹理位置 */
     //头部位
     SDL_Rect headrect;
@@ -575,8 +593,6 @@ int main(int, char**) {
     bodyrect.h *= 3;
     bodyrect.x = window_width / 2 - bodyrect.w / 2;
     bodyrect.y = window_height / 2 - bodyrect.h / 2 + 12;
-
-
 
     PLAYER isaac(bodyrect.x, bodyrect.y, headrect.w, headrect.h + bodyrect.h, 6, 2, 3.5, 3, 1, 6);
 
@@ -607,8 +623,12 @@ int main(int, char**) {
         SDL_Delay(16); // 约 60 FPS
     }
 
+    Mix_FreeMusic(main_msuic);
+    Mix_CloseAudio();
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
     return 0;
 }
+
+
