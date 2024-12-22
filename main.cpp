@@ -34,8 +34,6 @@ void playMusic()
 
 
 /* —————————— 角色 —————————— */
-
-//角色类
 class PLAYER {
 public:
     //角色基本面板属性
@@ -45,6 +43,7 @@ public:
     double speed;//角色速度
     double damage;//角色伤害
     double tear;//角色射速
+    double attack_interval;// 攻击间隔（时间单位为毫秒）
     double shootspeed;//角色弹速
     double range;//角色射程
     SDL_Rect bumpbox;//碰撞箱
@@ -61,6 +60,7 @@ public:
         this->bumpbox.y = y;
         this->bumpbox.w = w;
         this->bumpbox.h = h;
+        this->attack_interval = 1000.0 / tear;
     }
 };
 
@@ -293,50 +293,24 @@ void shootRightMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& RightHeadMot
 bool keyStates[8] = { false, false, false, false, false, false, false, false };
 
 
-// 每帧处理按键事件和移动逻辑
-void processInput(SDL_Event& event, bool& isquit, bool keyStates[8], Direction& head_direction,
-    SDL_Rect& headrect, SDL_Rect& bodyrect, PLAYER& isaac) {
+//每帧处理移动事件
+void processInput(SDL_Event& event, bool& isquit, bool keyStates[8]) {
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_QUIT) {
             isquit = true;
         }
         if (event.type == SDL_KEYDOWN) {
-            DIRECTION direction;
             switch (event.key.keysym.sym) {
-                //移动按键
+                // 移动按键
             case SDLK_w: keyStates[0] = true; break;
             case SDLK_a: keyStates[1] = true; break;
             case SDLK_s: keyStates[2] = true; break;
             case SDLK_d: keyStates[3] = true; break;
-                //攻击按键
-            case SDLK_UP:
-                keyStates[4] = true;
-                head_direction = UP;
-                direction = { PI * 3 / 2 };
-                Bullets.push_back(BULLET(headrect.x + headrect.w / 2 - 14, headrect.y + headrect.h / 2 - 15,
-                    isaac.shootspeed, isaac.damage, isaac.range, direction));
-                break;
-            case SDLK_LEFT:
-                keyStates[5] = true;
-                head_direction = LEFT;
-                direction = { PI };
-                Bullets.push_back(BULLET(headrect.x + headrect.w / 2 - 32, headrect.y + headrect.h / 2 - 10,
-                    isaac.shootspeed, isaac.damage, isaac.range, direction));
-                break;
-            case SDLK_DOWN:
-                keyStates[6] = true;
-                head_direction = DOWN;
-                direction = { PI / 2 };
-                Bullets.push_back(BULLET(headrect.x + headrect.w / 2 - 14, headrect.y + headrect.h / 2,
-                    isaac.shootspeed, isaac.damage, isaac.range, direction));
-                break;
-            case SDLK_RIGHT:
-                keyStates[7] = true;
-                head_direction = RIGHT;
-                direction = { 0 };
-                Bullets.push_back(BULLET(headrect.x + headrect.w / 2 + 5, headrect.y + headrect.h / 2 - 10,
-                    isaac.shootspeed, isaac.damage, isaac.range, direction));
-                break;
+                // 攻击按键
+            case SDLK_UP: keyStates[4] = true; break;
+            case SDLK_LEFT: keyStates[5] = true; break;
+            case SDLK_DOWN: keyStates[6] = true; break;
+            case SDLK_RIGHT: keyStates[7] = true; break;
             }
         }
         if (event.type == SDL_KEYUP) {
@@ -351,6 +325,51 @@ void processInput(SDL_Event& event, bool& isquit, bool keyStates[8], Direction& 
             case SDLK_RIGHT: keyStates[7] = false; break;
             }
         }
+    }
+}
+//处理射击事件
+void processShooting(bool keyStates[8], Direction& head_direction, SDL_Rect& headrect,
+    PLAYER& isaac, Uint32& last_shoot_time, bool& is_attacking, Uint32& attack_start_time) {
+    Uint32 current_time = SDL_GetTicks(); // 当前时间
+    double attack_interval = 1000.0 / isaac.tear; // 攻击间隔
+
+    // 处理射击并触发攻击动画
+    if (keyStates[4] && current_time - last_shoot_time >= attack_interval) { // 上
+        head_direction = UP;
+        Bullets.push_back(BULLET(headrect.x + headrect.w / 2 - 14, headrect.y + headrect.h / 2 - 15,
+            isaac.shootspeed, isaac.damage, isaac.range, { PI * 3 / 2 }));
+        last_shoot_time = current_time;
+        is_attacking = true;
+        attack_start_time = current_time; // 记录攻击开始时间
+    }
+    if (keyStates[5] && current_time - last_shoot_time >= attack_interval) { // 左
+        head_direction = LEFT;
+        Bullets.push_back(BULLET(headrect.x + headrect.w / 2 - 32, headrect.y + headrect.h / 2 - 10,
+            isaac.shootspeed, isaac.damage, isaac.range, { PI }));
+        last_shoot_time = current_time;
+        is_attacking = true;
+        attack_start_time = current_time;
+    }
+    if (keyStates[6] && current_time - last_shoot_time >= attack_interval) { // 下
+        head_direction = DOWN;
+        Bullets.push_back(BULLET(headrect.x + headrect.w / 2 - 14, headrect.y + headrect.h / 2,
+            isaac.shootspeed, isaac.damage, isaac.range, { PI / 2 }));
+        last_shoot_time = current_time;
+        is_attacking = true;
+        attack_start_time = current_time;
+    }
+    if (keyStates[7] && current_time - last_shoot_time >= attack_interval) { // 右
+        head_direction = RIGHT;
+        Bullets.push_back(BULLET(headrect.x + headrect.w / 2 + 5, headrect.y + headrect.h / 2 - 10,
+            isaac.shootspeed, isaac.damage, isaac.range, { 0 }));
+        last_shoot_time = current_time;
+        is_attacking = true;
+        attack_start_time = current_time;
+    }
+
+    // 检查动画是否播放完毕
+    if (is_attacking && current_time - attack_start_time >= attack_interval) {
+        is_attacking = false; // 动画结束后停止攻击状态
     }
 }
 
@@ -381,13 +400,11 @@ void updatePlayerPosition(SDL_Rect& headrect, SDL_Rect& bodyrect, const bool key
         bodyDirection = 0; // 静止
     }
 }
-
-
 // 更新角色动画
 void updatePlayerMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BackMotions, vector<SDL_Texture*>& FrontMotions,
     vector<SDL_Texture*>& RightMotions, vector<SDL_Texture*>& LeftMotions, vector<SDL_Texture*>& BackHeadMotions,
     vector<SDL_Texture*>& FrontHeadMotions, vector<SDL_Texture*>& RightHeadMotions, vector<SDL_Texture*>& LeftHeadMotions,
-    SDL_Rect& headrect, SDL_Rect& bodyrect, const bool keyStates[8], int bodyDirection) {
+    SDL_Rect& headrect, SDL_Rect& bodyrect, const bool keyStates[8], int bodyDirection, bool& is_attacking) {
 
     // 先处理身体动画
     switch (bodyDirection) {
@@ -400,16 +417,16 @@ void updatePlayerMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BackMotion
 
     // 按键优先触发头部攻击动画
     if (keyStates[4]) {
-        shootUpMotion(renderer, BackHeadMotions, headrect);
+        if (is_attacking) shootUpMotion(renderer, BackHeadMotions, headrect);
     }
     else if (keyStates[5]) {
-        shootLeftMotion(renderer, LeftHeadMotions, headrect);
+        if (is_attacking) shootLeftMotion(renderer, LeftHeadMotions, headrect);
     }
     else if (keyStates[6]) {
-        shootDownMotion(renderer, FrontHeadMotions, headrect);
+        if (is_attacking) shootDownMotion(renderer, FrontHeadMotions, headrect);
     }
     else if (keyStates[7]) {
-        shootRightMotion(renderer, RightHeadMotions, headrect);
+        if (is_attacking) shootRightMotion(renderer, RightHeadMotions, headrect);
     }
     else {
         // 默认渲染头部静止状态
@@ -451,7 +468,7 @@ void renderScene(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Text
     SDL_Rect& headrect, SDL_Rect& bodyrect, vector<SDL_Texture*>& BackMotions, vector<SDL_Texture*>& FrontMotions,
     vector<SDL_Texture*>& RightMotions, vector<SDL_Texture*>& LeftMotions, vector<SDL_Texture*>& BackHeadMotions,
     vector<SDL_Texture*>& FrontHeadMotions, vector<SDL_Texture*>& RightHeadMotions, vector<SDL_Texture*>& LeftHeadMotions,
-    const bool keyStates[8], int bodyDirection) {
+    const bool keyStates[8], int bodyDirection, bool& is_attacking) {
     // 子弹向上时先渲染子弹，再渲染角色
     for (const auto& bullet : bullets) {
         if (bullet.direction.radian == 3 * PI / 2 && bullet.bumpbox.y + bullet.bumpbox.h < headrect.y + headrect.h) {
@@ -460,7 +477,7 @@ void renderScene(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Text
     }
     // 更新角色动画
     updatePlayerMotion(renderer, BackMotions, FrontMotions, RightMotions, LeftMotions, BackHeadMotions,
-        FrontHeadMotions, RightHeadMotions, LeftHeadMotions, headrect, bodyrect, keyStates, bodyDirection);
+        FrontHeadMotions, RightHeadMotions, LeftHeadMotions, headrect, bodyrect, keyStates, bodyDirection, is_attacking);
     // 其他方向的子弹渲染（不受遮挡）
     for (const auto& bullet : bullets) {
         if (bullet.direction.radian != 3 * PI / 2 || bullet.bumpbox.y + bullet.bumpbox.h >= headrect.y + headrect.h) {
@@ -626,13 +643,18 @@ int main(int, char**) {
     bodyrect.y = window_height / 2 - bodyrect.h / 2 + 12;
 
 
-
+    Uint32 last_shoot_time = SDL_GetTicks(); // 上次射击时间
+	bool is_attacking = false; // 是否正在攻击
+	Uint32 attack_start_time = 0; // 攻击开始时间
     PLAYER isaac(bodyrect.x, bodyrect.y, headrect.w, headrect.h + bodyrect.h, 6, 2, 3.5, 3, 6, 6);
 
     while (!isquit) {
 
-        // 处理输入
-        processInput(event, isquit, keyStates, head_direction, headrect, bodyrect, isaac);
+		// 处理事件
+        processInput(event, isquit, keyStates);
+
+        // 每帧处理射击
+        processShooting(keyStates, head_direction, headrect, isaac, last_shoot_time, is_attacking, attack_start_time);
 
         // 更新子弹位置
         updateBullets(Bullets, window_width, window_height);
@@ -647,7 +669,7 @@ int main(int, char**) {
         // 渲染画面
 		renderScene(renderer, Bullets, bulletTexture, headrect, bodyrect, BackMotions, FrontMotions,
 			RightMotions, LeftMotions, BackHeadMotions, FrontHeadMotions, RightHeadMotions, LeftHeadMotions,
-			keyStates, bodyDirection);
+			keyStates, bodyDirection, is_attacking);
 
         // 刷新画布     
         SDL_RenderPresent(renderer);
