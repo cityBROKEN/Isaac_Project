@@ -714,8 +714,8 @@ int main(int, char**) {
     SDL_GetDisplayBounds(0, &screen_rect);
 
     // ´´½¨´°¿Ú
-    const int window_width = 1600;
-    const int window_height = 900;
+    const int window_width = 1368;
+    const int window_height = 768;
     int x = screen_rect.w / 2 - window_width / 2;
     int y = screen_rect.h / 2 - window_height / 2;
     SDL_Window* window = SDL_CreateWindow("Mouse_Cage", x, y,
