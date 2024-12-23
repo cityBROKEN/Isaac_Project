@@ -1055,6 +1055,7 @@ int main(int, char**) {
         return 1;
     }
 
+
     // 初始化事件队列
     bool isquit = false;
     SDL_Event event;
@@ -1087,6 +1088,7 @@ int main(int, char**) {
     Mix_PlayMusic(opening_video_sound, -1);
     playVideo("ISAAC/video/openingvideo.mp4", renderer);
     Mix_FreeMusic(opening_video_sound);
+    bool startGame = false;
 
     //播放音乐
     playMainMusic();
@@ -1095,6 +1097,40 @@ int main(int, char**) {
         return 1;
     }
     Mix_PlayMusic(main_music, -1);
+
+    /*开始界面*/
+
+    // 创建开始界面纹理
+    SDL_Texture* start_screen = IMG_LoadTexture(renderer, "ISAAC/Backgrounds/start_screen.png");
+    if (start_screen == NULL) {
+        SDL_Log("Failed to load start screen texture: %s", IMG_GetError());
+        return 1;
+    }
+
+    while (!startGame && !isquit) {
+        // 处理事件
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                isquit = true;
+            }
+            if (event.type == SDL_KEYDOWN) {
+                // 当用户按下回车键时，开始游戏
+                if (event.key.keysym.sym == SDLK_RETURN) {
+                    startGame = true;
+                }
+            }
+        }
+
+        // 渲染开始界面
+        SDL_RenderClear(renderer);
+        SDL_RenderCopy(renderer, start_screen, NULL, NULL);
+        SDL_RenderPresent(renderer);
+
+        SDL_Delay(16); // 控制帧率
+    }
+
+    /*释放开始界面纹理*/
+    SDL_DestroyTexture(start_screen);
 
     /* 创建房间纹理 */
     SDL_Texture* basement = IMG_LoadTexture(renderer, "ISAAC/Backgrounds/basement.png");
