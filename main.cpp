@@ -10,6 +10,8 @@
 #include <ctime>
 #include <cstdlib>
 #include <random>
+#include <map>
+#include < fstream >
 #include "main.h"
 #ifdef __cplusplus
 extern "C" {
@@ -44,7 +46,72 @@ mt19937 gen(rd());
 const int window_width = 1368;
 const int window_height = 768;
 
+/* —————————— 字体 —————————— */
+// 字符结构体
+struct Character {
+    SDL_Texture* texture;  // 字符纹理
+    SDL_Rect srcRect;      // 字符在纹理中的位置和大小
+    int xoffset, yoffset;  // 渲染时的偏移
+    int xadvance;          // 下一个字符的水平偏移
+};
 
+// 字符映射
+std::map<int, Character> Characters;
+SDL_Texture* fontTexture = nullptr;
+
+// 加载字体函数
+bool loadFont(const std::string& fontPath, const std::string& texturePath, SDL_Renderer* renderer) {
+    // 加载字体纹理
+    SDL_Surface* surface = IMG_Load(texturePath.c_str());
+    if (!surface) {
+        SDL_Log("Failed to load font texture: %s", IMG_GetError());
+        return false;
+    }
+    fontTexture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+    if (!fontTexture) {
+        SDL_Log("Failed to create font texture: %s", SDL_GetError());
+        return false;
+    }
+
+    // 打开 `.fnt` 文件
+    std::ifstream fontFile(fontPath);
+    if (!fontFile.is_open()) {
+        SDL_Log("Failed to open font file: %s", fontPath.c_str());
+        return false;
+    }
+
+    std::string line;
+    while (std::getline(fontFile, line)) {
+        // 查找包含字符信息的行
+        if (line.substr(0, 4) == "char") {
+            Character ch;
+            int id;
+            sscanf_s(line.c_str(), "char id=%d x=%d y=%d width=%d height=%d xoffset=%d yoffset=%d xadvance=%d",
+                &id, &ch.srcRect.x, &ch.srcRect.y, &ch.srcRect.w, &ch.srcRect.h,
+                &ch.xoffset, &ch.yoffset, &ch.xadvance);
+            ch.texture = fontTexture;
+            Characters[id] = ch;
+        }
+    }
+    fontFile.close();
+    return true;
+}
+
+// 渲染文字函数
+void renderText(SDL_Renderer* renderer, const std::string& text, int x, int y) {
+    int cursorX = x;
+    int cursorY = y;
+    for (const char& c : text) {
+        int ascii = static_cast<int>(c);
+        if (Characters.find(ascii) != Characters.end()) {
+            Character ch = Characters[ascii];
+            SDL_Rect destRect = { cursorX + ch.xoffset, cursorY + ch.yoffset, ch.srcRect.w, ch.srcRect.h };
+            SDL_RenderCopy(renderer, ch.texture, &ch.srcRect, &destRect);
+            cursorX += ch.xadvance;
+        }
+    }
+}
 
 /* —————————— 视频 —————————— */
 void playVideo(const char* videoPath, SDL_Renderer* renderer) {
@@ -1055,6 +1122,11 @@ int main(int, char**) {
         return 1;
     }
 
+    // 初始化 SDL ttf
+    if (TTF_Init() == -1) {
+        SDL_Log("TTF_Init: %s\n", TTF_GetError());
+        return 1;
+    }
 
     // 初始化事件队列
     bool isquit = false;
@@ -1072,6 +1144,12 @@ int main(int, char**) {
 
     // 创建渲染
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+
+    // 加载字体
+    if (!loadFont("ISAAC/Fonts/terminus8.fnt", "ISAAC/Fonts/terminus8_0.png", renderer)) {
+        SDL_Log("Failed to load font");
+        return 1;
+    }
 
     //初始化音乐与音效
     if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
@@ -1127,7 +1205,16 @@ int main(int, char**) {
         SDL_RenderPresent(renderer);
 
         SDL_Delay(16); // 控制帧率
+
+        // 渲染提示文字
+        renderText(renderer, "Press enter to play", window_width / 2 - 150, window_height - 100);
+
+        SDL_RenderPresent(renderer);
+
+        SDL_Delay(16); // 控制帧率
     }
+
+
 
     /*释放开始界面纹理*/
     SDL_DestroyTexture(start_screen);
@@ -1385,6 +1472,9 @@ int main(int, char**) {
 
     Mix_FreeMusic(main_music);
     Mix_CloseAudio();
+    SDL_DestroyTexture(fontTexture);
+    fontTexture = nullptr;
+    Characters.clear();
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
