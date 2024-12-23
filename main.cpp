@@ -135,15 +135,15 @@ void playVideo(const char* videoPath, SDL_Renderer* renderer) {
 
 
 /* —————————— 声音 —————————— */
-Mix_Music  *main_msuic = NULL;
+Mix_Music* main_music = NULL;
 Mix_Music* opening_video_sound = NULL;
 void playOpeningVideoSound()
 {
-    opening_video_sound = Mix_LoadMUS("ISAAC/Sound/openingvideo.wav");
+    opening_video_sound = Mix_LoadMUS("ISAAC/Sounds/openingvideo.wav");
 }
-void playMianMusic()
+void playMainMusic()
 {
-    main_msuic = Mix_LoadMUS("ISAAC/Sound/test.wav");
+    main_music = Mix_LoadMUS("ISAAC/Sounds/burning basement.mp3");
 }
 
 
@@ -761,12 +761,12 @@ int main(int, char**) {
     Mix_FreeMusic(opening_video_sound);
 
     //播放音乐
-    playMianMusic();
-    if (main_msuic == NULL) {
+    playMainMusic();
+    if (main_music == NULL) {
         SDL_Log("Failed to load beat music! SDL_mixer Error: %s", Mix_GetError());
         return 1;
     }
-    Mix_PlayMusic(main_msuic, -1);
+    Mix_PlayMusic(main_music, -1);
 
     /* 创建纹理 */
     SDL_Texture* basement = IMG_LoadTexture(renderer, "ISAAC/Backgrounds/basement.png");
@@ -922,12 +922,12 @@ int main(int, char**) {
 
         // 刷新画布     
         SDL_RenderPresent(renderer);
-
+        
         // 控制帧率
         SDL_Delay(16); // 约 60 FPS
     }
 
-    Mix_FreeMusic(main_msuic);
+    Mix_FreeMusic(main_music);
     Mix_CloseAudio();
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
