@@ -34,15 +34,15 @@ struct DIRECTION {
     double radian;
 };
 double distance(int x1, int y1, int x2, int y2) {
-	return sqrt(pow(x1 - x2, 2) + pow(y1 - y2, 2));
+    return sqrt(pow(x1 - x2, 2) + pow(y1 - y2, 2));
 }
 //初始化随机数
 random_device rd;
 mt19937 gen(rd());
 
 //窗口大小
-    const int window_width = 1368;
-    const int window_height = 768;
+const int window_width = 1368;
+const int window_height = 768;
 
 
 
@@ -302,10 +302,10 @@ public:
     double speed;//怪物速度
     double damage;//怪物伤害
     SDL_Rect bumpbox;//碰撞箱
-	State state;//怪物状态
+    State state;//怪物状态
     Uint32 lastMoveTime;  // 上次移动的时间
     Uint32 moveInterval;  // 移动间隔
-	bool isAlive = true;//怪物是否存活
+    bool isAlive = true;//怪物是否存活
     //怪物行为函数
     void move(const PLAYER& player) { // 怪物移动
         Uint32 currentTime = SDL_GetTicks();
@@ -355,8 +355,8 @@ public:
             lastMoveTime = currentTime; // 更新上次移动时间
         }
     }
-	void die() {//怪物死亡
-		isAlive = false;
+    void die() {//怪物死亡
+        isAlive = false;
     }
 };
 //苍蝇怪
@@ -370,7 +370,7 @@ public:
     Uint32 attackStartTime; // 攻击开始时间
     bool isReadyToAttack; // 是否准备好再次攻击
     bool hasShot; // 是否已经发射过子弹
-	SDL_Rect bumpbox;//碰撞箱
+    SDL_Rect bumpbox;//碰撞箱
     FLY(int x, int y) {
         id = 1;
         strcpy_s(name, "FLY");
@@ -392,8 +392,8 @@ public:
         // 初始化碰撞箱
         this->bumpbox.w = 96; // 图像宽度
         this->bumpbox.h = 96; // 图像高度
-        this->bumpbox.x = x+ (96 - 40) / 2;
-        this->bumpbox.y = y+ (96 - 40) / 2;
+        this->bumpbox.x = x + (96 - 40) / 2;
+        this->bumpbox.y = y + (96 - 40) / 2;
     }
     FLY* createFly(int x, int y) {
         FLY* fly = new FLY(x, y);
@@ -412,8 +412,8 @@ public:
         }
     }
     void updateMoveType(const PLAYER& player) { // 更新移动状态
-        if (distance(x, y, player.x, player.y) <= 600 )move_type = 2;
-        else move_type = 3; 
+        if (distance(x, y, player.x, player.y) <= 600)move_type = 2;
+        else move_type = 3;
     }
     void shoot(const PLAYER& player) { // 发射子弹
         Uint32 currentTime = SDL_GetTicks();
@@ -425,15 +425,15 @@ public:
             isReadyToAttack = false; // 设置为不准备攻击状态
         }
     }
-	void move(const PLAYER& player) { // 移动
-		detectState(player); // 检测玩家是否在攻击范围内
-		updateMoveType(player); // 更新移动状态
-		MONSTER::move(player); // 调用基类的移动函数
+    void move(const PLAYER& player) { // 移动
+        detectState(player); // 检测玩家是否在攻击范围内
+        updateMoveType(player); // 更新移动状态
+        MONSTER::move(player); // 调用基类的移动函数
         // 更新碰撞箱的位置
         this->bumpbox.x = static_cast<int>(this->x) + 8;
         this->bumpbox.y = static_cast<int>(this->y) + 8;
     }
-   
+
 };
 
 vector<FLY> Flies;
@@ -615,15 +615,15 @@ void flyAttackMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotions, S
 
 // 苍蝇怪死亡动画
 void flyDeadMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyDeadMotions, SDL_Rect& flyrect) {
-	static int currentFrame = 0;
-	static Uint32 lastFrameTime = 0;
-	Uint32 currentTime = SDL_GetTicks();
-	// 每200ms切换帧，按下按键时重置
-	if (currentTime - lastFrameTime >= 200 || currentFrame == 0) {
-		currentFrame = (currentFrame + 1) % FlyDeadMotions.size();
-		lastFrameTime = currentTime;
-	}
-	SDL_RenderCopy(renderer, FlyDeadMotions[currentFrame], NULL, &flyrect);
+    static int currentFrame = 0;
+    static Uint32 lastFrameTime = 0;
+    Uint32 currentTime = SDL_GetTicks();
+    // 每200ms切换帧，按下按键时重置
+    if (currentTime - lastFrameTime >= 200 || currentFrame == 0) {
+        currentFrame = (currentFrame + 1) % FlyDeadMotions.size();
+        lastFrameTime = currentTime;
+    }
+    SDL_RenderCopy(renderer, FlyDeadMotions[currentFrame], NULL, &flyrect);
 }
 
 /* —————————————————————————————— */
@@ -772,10 +772,10 @@ void updatePlayerPosition(SDL_Rect& headrect, SDL_Rect& bodyrect, const bool key
     isaac.x = headrect.x + headrect.w / 2 - 45;
     isaac.y = headrect.y + (headrect.h + bodyrect.h) / 2 - 65;
     // 更新角色的碰撞箱
-    isaac.bumpbox.x = headrect.x+15;
-    isaac.bumpbox.y = headrect.y+10;
-    isaac.bumpbox.w = headrect.w-30;
-    isaac.bumpbox.h = headrect.h-10;
+    isaac.bumpbox.x = headrect.x + 15;
+    isaac.bumpbox.y = headrect.y + 10;
+    isaac.bumpbox.w = headrect.w - 30;
+    isaac.bumpbox.h = headrect.h - 10;
     // 在主循环或专门的更新函数中
     Uint32 currentTime = SDL_GetTicks();
     if (isaac.isInvincible && currentTime - isaac.invincibleStartTime >= isaac.invincibleDuration) {
@@ -978,7 +978,7 @@ void renderScene(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Text
     SDL_Rect& headrect, SDL_Rect& bodyrect, vector<SDL_Texture*>& BackMotions, vector<SDL_Texture*>& FrontMotions,
     vector<SDL_Texture*>& RightMotions, vector<SDL_Texture*>& LeftMotions, vector<SDL_Texture*>& BackHeadMotions,
     vector<SDL_Texture*>& FrontHeadMotions, vector<SDL_Texture*>& RightHeadMotions, vector<SDL_Texture*>& LeftHeadMotions,
-    const bool keyStates[8], int bodyDirection, bool& is_attacking, vector<SDL_Texture*>& BurstMotions,  vector<FLY>& flies,
+    const bool keyStates[8], int bodyDirection, bool& is_attacking, vector<SDL_Texture*>& BurstMotions, vector<FLY>& flies,
     vector<SDL_Texture*>& FlyMotions, SDL_Texture* enemy_bullet_texture, vector<SDL_Texture*>& EnemyBurstMotions, PLAYER& player,
     SDL_Texture* full_heart, SDL_Texture* half_heart, SDL_Texture* empty_heart) {
     // 绘制血量
@@ -1101,12 +1101,12 @@ int main(int, char**) {
     SDL_Texture* black = IMG_LoadTexture(renderer, "ISAAC/Backgrounds/black.png");
 
     /* 创建纹理 */
-    
+
     SDL_Texture* bullet_texture = IMG_LoadTexture(renderer, "ISAAC/Characters/bullet.png");
     SDL_Texture* enemy_bullet_texture = IMG_LoadTexture(renderer, "ISAAC/Monsters/enemy_bullet.png");
-	SDL_Texture* full_heart = IMG_LoadTexture(renderer, "ISAAC/Characters/full_heart.png");
-	SDL_Texture* half_heart = IMG_LoadTexture(renderer, "ISAAC/Characters/half_heart.png");
-	SDL_Texture* empty_heart = IMG_LoadTexture(renderer, "ISAAC/Characters/empty_heart.png");
+    SDL_Texture* full_heart = IMG_LoadTexture(renderer, "ISAAC/Characters/full_heart.png");
+    SDL_Texture* half_heart = IMG_LoadTexture(renderer, "ISAAC/Characters/half_heart.png");
+    SDL_Texture* empty_heart = IMG_LoadTexture(renderer, "ISAAC/Characters/empty_heart.png");
 
     /* 初始化动画纹理数组 */
     vector<SDL_Texture*> BackMotions;
