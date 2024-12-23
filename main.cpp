@@ -1214,8 +1214,8 @@ int main(int, char**) {
         // 更新角色位置
         updatePlayerPosition(headrect, bodyrect, keyStates, window_width, window_height, bodyDirection, isaac);
 
-        // 检测 bodyrect 是否进入右下角 100x100 像素区域
-        if (bodyrect.x + bodyrect.w > window_width - 100 && bodyrect.y + bodyrect.h > window_height - 100) {
+        // 检测 bodyrect 是否进入指定的矩形区域
+        if (bodyrect.x + bodyrect.w > 610 && bodyrect.x < 755 && bodyrect.y + bodyrect.h > 55 && bodyrect.y < 130) {
             if (!switching_room) {
                 switchRoom(renderer, black, headrect, bodyrect);
                 switch_start_time = SDL_GetTicks();
@@ -1225,7 +1225,7 @@ int main(int, char**) {
         }
 
         // 检查是否达到延迟时间
-        if (switching_room && SDL_GetTicks() - switch_start_time >= 2000) { // 延长到 5 秒
+        if (switching_room && SDL_GetTicks() - switch_start_time >= 1000) { // 延长到 5 秒
             switchRoom(renderer, basement, headrect, bodyrect);
             switching_room = false;
             black_screen = false;
