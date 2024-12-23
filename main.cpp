@@ -40,6 +40,11 @@ double distance(int x1, int y1, int x2, int y2) {
 random_device rd;
 mt19937 gen(rd());
 
+//窗口大小
+    const int window_width = 1368;
+    const int window_height = 768;
+
+
 
 /* —————————— 视频 —————————— */
 void playVideo(const char* videoPath, SDL_Renderer* renderer) {
@@ -632,6 +637,32 @@ void flyDeadMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyDeadMotions,
 /* —————————————————————————————— */
 
 
+/* 切换房间 */
+void switchRoom(SDL_Renderer* renderer, SDL_Texture* newRoomTexture, SDL_Rect& headrect, SDL_Rect& bodyrect) {
+    // 渲染新房间背景
+    SDL_RenderClear(renderer);
+    SDL_RenderCopy(renderer, newRoomTexture, NULL, NULL);
+    SDL_RenderPresent(renderer);
+
+    // 重置角色位置
+    headrect.x = window_width / 2 - headrect.w / 2;
+    headrect.y = window_height / 2 - headrect.h / 2 - 12;
+    bodyrect.x = window_width / 2 - bodyrect.w / 2;
+    bodyrect.y = window_height / 2 - bodyrect.h / 2 + 12;
+
+    // 清空当前子弹
+    Bullets.clear();
+    FlyBullets.clear();
+
+    // 随机生成新的怪物
+    Flies.clear();
+    srand(time(NULL));
+    for (int i = 0; i < 10; i++) {
+        FLY fly(rand() % window_width, rand() % window_height);
+        Flies.push_back(fly);
+    }
+}
+
 
 
 
@@ -953,8 +984,6 @@ int main(int, char**) {
     SDL_GetDisplayBounds(0, &screen_rect);
 
     // 创建窗口
-    const int window_width = 1368;
-    const int window_height = 768;
     int x = screen_rect.w / 2 - window_width / 2;
     int y = screen_rect.h / 2 - window_height / 2;
     SDL_Window* window = SDL_CreateWindow("The Binding of Isaac", x, y,
@@ -987,8 +1016,12 @@ int main(int, char**) {
     }
     Mix_PlayMusic(main_music, -1);
 
-    /* 创建纹理 */
+    /* 创建房间纹理 */
     SDL_Texture* basement = IMG_LoadTexture(renderer, "ISAAC/Backgrounds/basement.png");
+    SDL_Texture* black = IMG_LoadTexture(renderer, "ISAAC/Backgrounds/black.png");
+
+    /* 创建纹理 */
+    
     SDL_Texture* bullet_texture = IMG_LoadTexture(renderer, "ISAAC/Characters/bullet.png");
     SDL_Texture* enemy_bullet_texture = IMG_LoadTexture(renderer, "ISAAC/Monsters/enemy_bullet.png");
 
@@ -1154,6 +1187,10 @@ int main(int, char**) {
         Flies.push_back(fly);
     }
 
+    Uint32 switch_start_time = 0; // 切换房间开始时间
+    bool switching_room = false; // 是否正在切换房间
+    bool black_screen = false; // 是否处于黑屏状态
+
     while (!isquit) {
         // 处理事件
         processInput(event, isquit, keyStates);
@@ -1170,15 +1207,45 @@ int main(int, char**) {
 
         // 渲染背景
         SDL_RenderClear(renderer);
+        SDL_RenderCopy(renderer, black, NULL, NULL);
         SDL_RenderCopy(renderer, basement, NULL, NULL);
+
 
         // 更新角色位置
         updatePlayerPosition(headrect, bodyrect, keyStates, window_width, window_height, bodyDirection, isaac);
 
+        // 检测 bodyrect 是否进入右下角 100x100 像素区域
+        if (bodyrect.x + bodyrect.w > window_width - 100 && bodyrect.y + bodyrect.h > window_height - 100) {
+            if (!switching_room) {
+                switchRoom(renderer, black, headrect, bodyrect);
+                switch_start_time = SDL_GetTicks();
+                switching_room = true;
+                black_screen = true;
+            }
+        }
+
+        // 检查是否达到延迟时间
+        if (switching_room && SDL_GetTicks() - switch_start_time >= 2000) { // 延长到 5 秒
+            switchRoom(renderer, basement, headrect, bodyrect);
+            switching_room = false;
+            black_screen = false;
+        }
+
+        // 渲染背景
+        SDL_RenderClear(renderer);
+        if (black_screen) {
+            SDL_RenderCopy(renderer, black, NULL, NULL);
+        }
+        else {
+            SDL_RenderCopy(renderer, basement, NULL, NULL);
+        }
+
         // 渲染画面
-        renderScene(renderer, Bullets, bullet_texture, headrect, bodyrect, BackMotions, FrontMotions,
-            RightMotions, LeftMotions, BackHeadMotions, FrontHeadMotions, RightHeadMotions, LeftHeadMotions,
-            keyStates, bodyDirection, is_attacking, BurstMotions, Flies, FlyMotions, enemy_bullet_texture, EnemyBurstMotions);
+        if (!black_screen) {
+            renderScene(renderer, Bullets, bullet_texture, headrect, bodyrect, BackMotions, FrontMotions,
+                RightMotions, LeftMotions, BackHeadMotions, FrontHeadMotions, RightHeadMotions, LeftHeadMotions,
+                keyStates, bodyDirection, is_attacking, BurstMotions, Flies, FlyMotions, enemy_bullet_texture, EnemyBurstMotions);
+        }
 
         // 刷新画布     
         SDL_RenderPresent(renderer);
