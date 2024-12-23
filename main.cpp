@@ -176,6 +176,10 @@ public:
     double shootspeed;//角色弹速
     double range;//角色射程
     SDL_Rect bumpbox;//碰撞箱
+    // 无敌状态相关变量
+    bool isInvincible;          // 是否处于无敌状态
+    Uint32 invincibleStartTime; // 无敌开始时间
+    Uint32 invincibleDuration;  // 无敌持续时间（毫秒）
     PLAYER(int x, int y, int w, int h, double HP, double speed, double damage, double tear, double shootspeed, double range) {
         this->x = x;
         this->y = y;
@@ -190,6 +194,9 @@ public:
         this->bumpbox.w = w;
         this->bumpbox.h = h;
         this->attack_interval = 1000.0 / tear;
+        this->isInvincible = false;
+        this->invincibleStartTime = 0;
+        this->invincibleDuration = 1000; // 无敌持续时间为1秒，可根据需要调整
     }
 };
 
@@ -296,119 +303,10 @@ public:
     double damage;//怪物伤害
     SDL_Rect bumpbox;//碰撞箱
 	State state;//怪物状态
-	bool isAlive = true;//怪物是否存活
-    //怪物行为函数
-	void move(const PLAYER& player) {//怪物移动
-        switch (move_type) {
-        case 1://追踪玩家移动，且速度不变
-            if (x < player.x) {
-                x += speed;
-            }
-            else if (x > player.x) {
-                x -= speed;
-            }
-            if (y < player.y) {
-                y += speed;
-            }
-            else if (y > player.y) {
-                y -= speed;
-            }
-            break;
-        case 2://追踪玩家移动，且越接近玩家速度越慢
-            if (x < player.x) {
-                x += speed / distance(x, y, player.x, player.y);
-            }
-            else if (x > player.x) {
-                x -= speed / distance(x, y, player.x, player.y);
-            }
-            if (y < player.y) {
-                y += speed / distance(x, y, player.x, player.y);
-            }
-            else if (y > player.y) {
-                y -= speed / distance(x, y, player.x, player.y);
-            }
-            break;
-        case 3://在一定范围内随机移动
-            srand((unsigned)time(NULL));
-            int random = rand() % 4;
-            switch (random) {
-            case 0:
-                x += speed;
-                break;
-            case 1:
-                x -= speed;
-                break;
-            case 2:
-                y += speed;
-                break;
-            case 3:
-                y -= speed;
-                break;
-            }
-            break;
-        }
-	}//怪物移动
-	void die() {//怪物死亡
-		isAlive = false;
-    }
-};
-//苍蝇怪
-class FLY : public MONSTER {
-public:
-    friend class PLAYER;
-    Uint32 lastShootTime; // 上次发射子弹的时间
-    Uint32 shootInterval; // 攻击间隔
     Uint32 lastMoveTime;  // 上次移动的时间
     Uint32 moveInterval;  // 移动间隔
-    int currentFrame;     // 当前动画帧
-    Uint32 lastFrameTime; // 上次动画帧时间
-    Uint32 attackStartTime; // 攻击开始时间
-    bool isReadyToAttack; // 是否准备好再次攻击
-
-    FLY(int x, int y) {
-        id = 1;
-        strcpy_s(name, "FLY");
-        this->x = x;
-        this->y = y;
-        HP = 10;
-        move_type = 1;
-        speed = 3;
-        damage = 1;
-        lastShootTime = 0;
-        shootInterval = 2000; // 设置攻击间隔为2000毫秒（2秒）
-        lastMoveTime = SDL_GetTicks(); // 初始化为当前时间
-        moveInterval = 16 + rand() % 16; // 设置移动间隔为16-32毫秒之间的随机值
-        currentFrame = 0;
-        lastFrameTime = SDL_GetTicks();
-        attackStartTime = 0;
-        isReadyToAttack = true;
-    }
-    FLY* createFly(int x, int y) {
-        FLY* fly = new FLY(x, y);
-        return fly;
-    }
-    void detectState(const PLAYER& player) { // 检测玩家是否在攻击范围内
-        if (distance(x, y, player.x, player.y) <= 400 && isReadyToAttack && isReadyToAttack == true) {
-            state = ATTACK;
-        }
-        else {
-            state = IDLE;
-        }
-    }
-    void updateMoveType(const PLAYER& player) { // 更新移动状态
-        if (distance(x, y, player.x, player.y) <= 400)move_type = 2;
-        else move_type = 2; 
-    }
-    void shoot(const PLAYER& player) { // 发射子弹
-        Uint32 currentTime = SDL_GetTicks();
-        if (isReadyToAttack) {
-            double angle = atan2(player.y - y, player.x - x);
-            FlyBullets.push_back(BULLET(x, y, 5, damage, 300, { angle }));
-            lastShootTime = currentTime; // 更新上次发射时间
-            attackStartTime = currentTime; // 记录攻击开始时间
-            isReadyToAttack = false; // 设置为不准备攻击状态
-        }
-    }
+	bool isAlive = true;//怪物是否存活
+    //怪物行为函数
     void move(const PLAYER& player) { // 怪物移动
         Uint32 currentTime = SDL_GetTicks();
         if (currentTime - lastMoveTime >= moveInterval) { // 检查是否达到移动间隔
@@ -427,20 +325,25 @@ public:
                     y -= speed;
                 }
                 break;
-            case 2: // 追踪玩家移动，且越接近玩家速度越慢
-                if (x < player.x) {
-                    x += speed / distance(x, y, player.x, player.y);
+            case 2: // 追踪玩家移动，且越靠近玩家速度越慢
+            {
+                // 计算怪物与玩家的距离
+                double dist = distance(x, y, player.x, player.y);
+                // 为了防止除以零，设置一个最小距离
+                if (dist < 1.0) {
+                    dist = 1.0;
                 }
-                else if (x > player.x) {
-                    x -= speed / distance(x, y, player.x, player.y);
-                }
-                if (y < player.y) {
-                    y += speed / distance(x, y, player.x, player.y);
-                }
-                else if (y > player.y) {
-                    y -= speed / distance(x, y, player.x, player.y);
-                }
-                break;
+                // 计算方向向量，并归一化
+                double dx = (player.x - x) / dist;
+                double dy = (player.y - y) / dist;
+                // 计算移动速度，距离越大速度越快，距离越小速度越慢
+                double moveSpeed = speed * (dist / 1000.0); // 100.0 是一个调节系数，可根据需要调整
+                // 更新怪物位置
+                x += dx * moveSpeed;
+                y += dy * moveSpeed;
+            }
+            break;
+
             case 3: // 在一定范围内随机移动
                 uniform_real_distribution<> dis(0.0, 1.0);
                 double random_element = dis(gen);
@@ -452,6 +355,85 @@ public:
             lastMoveTime = currentTime; // 更新上次移动时间
         }
     }
+	void die() {//怪物死亡
+		isAlive = false;
+    }
+};
+//苍蝇怪
+class FLY : public MONSTER {
+public:
+    friend class PLAYER;
+    Uint32 lastShootTime; // 上次发射子弹的时间
+    Uint32 shootInterval; // 攻击间隔
+    int currentFrame;     // 当前动画帧
+    Uint32 lastFrameTime; // 上次动画帧时间
+    Uint32 attackStartTime; // 攻击开始时间
+    bool isReadyToAttack; // 是否准备好再次攻击
+    bool hasShot; // 是否已经发射过子弹
+	SDL_Rect bumpbox;//碰撞箱
+    FLY(int x, int y) {
+        id = 1;
+        strcpy_s(name, "FLY");
+        this->x = x;
+        this->y = y;
+        HP = 10;
+        move_type = 1;
+        speed = 3;
+        damage = 1;
+        lastShootTime = 0;
+        shootInterval = 2000; // 设置攻击间隔为2000毫秒（2秒）
+        lastMoveTime = SDL_GetTicks(); // 初始化为当前时间
+        moveInterval = 16 + rand() % 16; // 设置移动间隔为16-32毫秒之间的随机值
+        currentFrame = 0;
+        lastFrameTime = SDL_GetTicks();
+        attackStartTime = 0;
+        isReadyToAttack = true;
+        hasShot = false;
+        // 初始化碰撞箱
+        this->bumpbox.w = 96; // 图像宽度
+        this->bumpbox.h = 96; // 图像高度
+        this->bumpbox.x = x+ (96 - 40) / 2;
+        this->bumpbox.y = y+ (96 - 40) / 2;
+    }
+    FLY* createFly(int x, int y) {
+        FLY* fly = new FLY(x, y);
+        return fly;
+    }
+    void detectState(const PLAYER& player) { // 检测玩家是否在攻击范围内
+        if (state == ATTACK) {
+            // 如果正在攻击，不改变状态
+            return;
+        }
+        if (distance(x, y, player.x, player.y) <= 400 && isReadyToAttack) {
+            state = ATTACK;
+        }
+        else {
+            state = IDLE;
+        }
+    }
+    void updateMoveType(const PLAYER& player) { // 更新移动状态
+        if (distance(x, y, player.x, player.y) <= 600 )move_type = 2;
+        else move_type = 3; 
+    }
+    void shoot(const PLAYER& player) { // 发射子弹
+        Uint32 currentTime = SDL_GetTicks();
+        if (isReadyToAttack) {
+            double angle = atan2(player.y - y, player.x - x);
+            FlyBullets.push_back(BULLET(x + 35, y + 50, 5, damage, 300, { angle }));
+            lastShootTime = currentTime; // 更新上次发射时间
+            attackStartTime = currentTime; // 记录攻击开始时间
+            isReadyToAttack = false; // 设置为不准备攻击状态
+        }
+    }
+	void move(const PLAYER& player) { // 移动
+		detectState(player); // 检测玩家是否在攻击范围内
+		updateMoveType(player); // 更新移动状态
+		MONSTER::move(player); // 调用基类的移动函数
+        // 更新碰撞箱的位置
+        this->bumpbox.x = static_cast<int>(this->x) + 8;
+        this->bumpbox.y = static_cast<int>(this->y) + 8;
+    }
+   
 };
 
 vector<FLY> Flies;
@@ -605,22 +587,32 @@ void flyIdleMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotions, SDL
     SDL_RenderCopy(renderer, FlyMotions[fly.currentFrame], NULL, &flyrect);
 }
 // 苍蝇怪攻击动画
-void flyAttackMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotions, SDL_Rect& flyrect, FLY& fly) {
+void flyAttackMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotions, SDL_Rect& flyrect, FLY& fly, const PLAYER& player) {
     Uint32 currentTime = SDL_GetTicks();
     // 每50ms切换帧
-    if (currentTime - fly.lastFrameTime >= 50) {
+    if (currentTime - fly.lastFrameTime >= 40) {
         fly.currentFrame = (fly.currentFrame + 1) % 16;
         fly.lastFrameTime = currentTime;
     }
     SDL_RenderCopy(renderer, FlyMotions[fly.currentFrame], NULL, &flyrect);
 
+    // 当动画帧为第9帧时发射子弹
+    if (fly.currentFrame == 8 && !fly.hasShot) {
+        fly.shoot(player);
+        fly.hasShot = true; // 设置已发射标志，防止重复发射
+    }
+
     // 检查动画是否播放完毕
-    if (currentTime - fly.attackStartTime >= 800) { // 假设攻击动画持续800ms
+    if (currentTime - fly.attackStartTime >= 440) { // 假设攻击动画持续800ms
         fly.state = IDLE; // 设置为常态
-        fly.lastShootTime = currentTime; // 更新上次发射时间
         fly.isReadyToAttack = false; // 设置为不准备攻击状态
+        fly.hasShot = false; // 重置已发射标志
     }
 }
+
+
+
+
 // 苍蝇怪死亡动画
 void flyDeadMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyDeadMotions, SDL_Rect& flyrect) {
 	static int currentFrame = 0;
@@ -715,28 +707,28 @@ void processShooting(bool keyStates[8], Direction& head_direction, SDL_Rect& hea
     // 处理射击并触发攻击动画
     if (keyStates[4] && current_time - last_shoot_time >= attack_interval) { // 上
         head_direction = UP;
-        Bullets.push_back(BULLET(isaac.x, isaac.y - 30, isaac.shootspeed, isaac.damage, isaac.range, { PI * 3 / 2 }));
+        Bullets.push_back(BULLET(isaac.x + 30, isaac.y, isaac.shootspeed, isaac.damage, isaac.range, { PI * 3 / 2 }));
         last_shoot_time = current_time;
         is_attacking = true;
         attack_start_time = current_time; // 记录攻击开始时间
     }
     if (keyStates[5] && current_time - last_shoot_time >= attack_interval) { // 左
         head_direction = LEFT;
-        Bullets.push_back(BULLET(isaac.x, isaac.y - 30, isaac.shootspeed, isaac.damage, isaac.range, { PI }));
+        Bullets.push_back(BULLET(isaac.x + 30, isaac.y, isaac.shootspeed, isaac.damage, isaac.range, { PI }));
         last_shoot_time = current_time;
         is_attacking = true;
         attack_start_time = current_time;
     }
     if (keyStates[6] && current_time - last_shoot_time >= attack_interval) { // 下
         head_direction = DOWN;
-        Bullets.push_back(BULLET(isaac.x, isaac.y - 30, isaac.shootspeed, isaac.damage, isaac.range, { PI / 2 }));
+        Bullets.push_back(BULLET(isaac.x + 30, isaac.y, isaac.shootspeed, isaac.damage, isaac.range, { PI / 2 }));
         last_shoot_time = current_time;
         is_attacking = true;
         attack_start_time = current_time;
     }
     if (keyStates[7] && current_time - last_shoot_time >= attack_interval) { // 右
         head_direction = RIGHT;
-        Bullets.push_back(BULLET(isaac.x, isaac.y - 30, isaac.shootspeed, isaac.damage, isaac.range, { 0 }));
+        Bullets.push_back(BULLET(isaac.x + 30, isaac.y, isaac.shootspeed, isaac.damage, isaac.range, { 0 }));
         last_shoot_time = current_time;
         is_attacking = true;
         attack_start_time = current_time;
@@ -750,8 +742,7 @@ void processShooting(bool keyStates[8], Direction& head_direction, SDL_Rect& hea
 
 
 
-
-// 更新角色位置和方向
+// 更新角色位置
 void updatePlayerPosition(SDL_Rect& headrect, SDL_Rect& bodyrect, const bool keyStates[4], int window_width,
     int window_height, int& bodyDirection, PLAYER& isaac) {
     if (keyStates[0] && headrect.y > 0) {
@@ -778,15 +769,34 @@ void updatePlayerPosition(SDL_Rect& headrect, SDL_Rect& bodyrect, const bool key
         bodyDirection = 0; // 静止
     }
     // 更新 isaac 的中心点坐标
-    isaac.x = headrect.x + headrect.w / 2 - 14;
-    isaac.y = bodyrect.y + bodyrect.h / 2;
+    isaac.x = headrect.x + headrect.w / 2 - 45;
+    isaac.y = headrect.y + (headrect.h + bodyrect.h) / 2 - 65;
+    // 更新角色的碰撞箱
+    isaac.bumpbox.x = headrect.x+15;
+    isaac.bumpbox.y = headrect.y+10;
+    isaac.bumpbox.w = headrect.w-30;
+    isaac.bumpbox.h = headrect.h-10;
+    // 在主循环或专门的更新函数中
+    Uint32 currentTime = SDL_GetTicks();
+    if (isaac.isInvincible && currentTime - isaac.invincibleStartTime >= isaac.invincibleDuration) {
+        isaac.isInvincible = false; // 结束无敌状态
+    }
+
 }
 // 更新角色动画
 void updatePlayerMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BackMotions, vector<SDL_Texture*>& FrontMotions,
     vector<SDL_Texture*>& RightMotions, vector<SDL_Texture*>& LeftMotions, vector<SDL_Texture*>& BackHeadMotions,
     vector<SDL_Texture*>& FrontHeadMotions, vector<SDL_Texture*>& RightHeadMotions, vector<SDL_Texture*>& LeftHeadMotions,
-    SDL_Rect& headrect, SDL_Rect& bodyrect, const bool keyStates[8], int bodyDirection, bool& is_attacking) {
-
+    SDL_Rect& headrect, SDL_Rect& bodyrect, const bool keyStates[8], int bodyDirection, bool& is_attacking, PLAYER& player) {
+    // 在渲染角色之前，检查是否处于无敌状态
+    if (player.isInvincible) {
+        // 计算闪烁效果，例如每隔 100ms 切换一次可见性
+        Uint32 currentTime = SDL_GetTicks();
+        if ((currentTime / 100) % 2 == 0) {
+            // 此时不渲染角色，实现闪烁效果
+            return;
+        }
+    }
     // 先处理身体动画
     switch (bodyDirection) {
     case 1: backMotion(renderer, BackMotions, headrect, bodyrect); break;
@@ -820,10 +830,8 @@ void updatePlayerMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BackMotion
         }
     }
 }
-
-
-// 更新人物子弹位置
-void updateBullets(vector<BULLET>& bullets, int window_width, int window_height, vector<SDL_Texture*>& BurstMotions) {
+// 在 updateBullets 函数中，添加一个参数，用于区分是玩家的子弹还是怪物的子弹
+void updateBullets(vector<BULLET>& bullets, int window_width, int window_height, vector<SDL_Texture*>& BurstMotions, bool isEnemyBullet, PLAYER& player) {
     for (auto it = bullets.begin(); it != bullets.end();) {
         it->update();
 
@@ -833,24 +841,38 @@ void updateBullets(vector<BULLET>& bullets, int window_width, int window_height,
             it->burst();
         }
 
-        // 这里可以添加子弹与怪物的碰撞检测，示例代码如下：
-        /*
-        for (auto& monster : monsters) {
-            if (it->isCollide(monster.bumpbox)) {
-                it->burst();
-                monster.HP -= it->damage;
-                if (monster.HP <= 0) {
-                    monster.die();
+        // 碰撞检测
+        if (!it->isBursting) {
+            // 处理敌人子弹
+            if (isEnemyBullet) {
+                if (it->isCollide(player.bumpbox)) {
+                    if (!player.isInvincible) { // 如果不在无敌状态
+                        player.HP -= it->damage;
+                        player.isInvincible = true; // 开始无敌状态
+                        player.invincibleStartTime = SDL_GetTicks();
+                    }
+                    it->burst();
                 }
-                break;
+            }
+
+            else {
+                // 玩家子弹，检测是否击中怪物
+                for (auto& fly : Flies) {
+                    if (it->isCollide(fly.bumpbox)) {
+                        it->burst();
+                        fly.HP -= it->damage;
+                        if (fly.HP <= 0) {
+                            fly.die();
+                        }
+                        break;
+                    }
+                }
             }
         }
-        */
 
         // 如果子弹正在播放爆裂动画，检查动画是否结束
         if (it->isBursting) {
             Uint32 currentTime = SDL_GetTicks();
-            // 假设爆裂动画持续时间为 `burstDuration`，根据动画帧数和帧间隔计算
             Uint32 burstDuration = BurstMotions.size() * 50; // 每帧50ms
             if (currentTime - it->burstStartTime >= burstDuration) {
                 // 动画结束，删除子弹
@@ -883,24 +905,65 @@ void renderBullets(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Te
         }
     }
 }
+// 人物血量渲染
+void renderPlayerHealth(SDL_Renderer* renderer, const PLAYER& player, SDL_Texture* full_heart, SDL_Texture* half_heart, SDL_Texture* empty_heart) {
+    int maxHearts = 6; // 假设最大心数为6
+    int heartWidth = 30;
+    int heartHeight = 30;
 
-
-// 更新怪物位置
-void updateMonsters(vector<FLY>& flies, const PLAYER& player, int window_width, int window_height) {
-    for (auto& fly : flies) {
-        fly.detectState(player);
-        fly.updateMoveType(player);
-        fly.move(player);
-        if (fly.state == ATTACK) {
-            fly.shoot(player);
+    for (int i = 0; i < maxHearts; ++i) {
+        SDL_Rect heartRect = { 10 + i * (heartWidth + 5), 10, heartWidth, heartHeight };
+        if (player.HP >= (i + 1) * 2) {
+            // 绘制满心
+            SDL_RenderCopy(renderer, full_heart, NULL, &heartRect);
         }
-        // 检查是否达到攻击间隔
-        Uint32 currentTime = SDL_GetTicks();
-        if (!fly.isReadyToAttack && currentTime - fly.lastShootTime >= fly.shootInterval) {
-            fly.isReadyToAttack = true; // 设置为准备攻击状态
+        else if (player.HP == (i * 2) + 1) {
+            // 绘制半心
+            SDL_RenderCopy(renderer, half_heart, NULL, &heartRect);
+        }
+        else {
+            // 绘制空心
+            SDL_RenderCopy(renderer, empty_heart, NULL, &heartRect);
         }
     }
 }
+
+
+
+// 更新怪物位置在，删除死亡的怪物
+void updateMonsters(vector<FLY>& flies, PLAYER& player, int window_width, int window_height) {
+    for (auto it = flies.begin(); it != flies.end();) {
+        if (!it->isAlive) {
+            it = flies.erase(it);
+        }
+        else {
+            it->detectState(player);
+            it->updateMoveType(player);
+            it->move(player);
+
+            // 检查是否达到攻击间隔
+            Uint32 currentTime = SDL_GetTicks();
+            if (!it->isReadyToAttack && currentTime - it->lastShootTime >= it->shootInterval) {
+                it->isReadyToAttack = true; // 设置为准备攻击状态
+            }
+
+            // 碰撞检测
+            if (SDL_HasIntersection(&player.bumpbox, &it->bumpbox)) {
+                if (!player.isInvincible) { // 如果不在无敌状态
+                    player.HP -= it->damage;
+                    player.isInvincible = true; // 开始无敌状态
+                    player.invincibleStartTime = SDL_GetTicks(); // 记录无敌开始时间
+                }
+                // 可选：添加角色受伤的反馈，如播放受伤音效
+            }
+
+            ++it;
+        }
+    }
+}
+
+
+
 
 
 
@@ -915,17 +978,33 @@ void renderScene(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Text
     SDL_Rect& headrect, SDL_Rect& bodyrect, vector<SDL_Texture*>& BackMotions, vector<SDL_Texture*>& FrontMotions,
     vector<SDL_Texture*>& RightMotions, vector<SDL_Texture*>& LeftMotions, vector<SDL_Texture*>& BackHeadMotions,
     vector<SDL_Texture*>& FrontHeadMotions, vector<SDL_Texture*>& RightHeadMotions, vector<SDL_Texture*>& LeftHeadMotions,
-    const bool keyStates[8], int bodyDirection, bool& is_attacking, vector<SDL_Texture*>& BurstMotions, const vector<FLY>& flies,
-    vector<SDL_Texture*>& FlyMotions, SDL_Texture* enemy_bullet_texture, vector<SDL_Texture*>& EnemyBurstMotions) {
+    const bool keyStates[8], int bodyDirection, bool& is_attacking, vector<SDL_Texture*>& BurstMotions,  vector<FLY>& flies,
+    vector<SDL_Texture*>& FlyMotions, SDL_Texture* enemy_bullet_texture, vector<SDL_Texture*>& EnemyBurstMotions, PLAYER& player,
+    SDL_Texture* full_heart, SDL_Texture* half_heart, SDL_Texture* empty_heart) {
+    // 绘制血量
+    renderPlayerHealth(renderer, player, full_heart, half_heart, empty_heart);
     // 子弹向上时先渲染子弹，再渲染角色
     for (const auto& bullet : bullets) {
         if (bullet.direction.radian == 3 * PI / 2 && bullet.bumpbox.y + bullet.bumpbox.h < headrect.y + headrect.h) {
             renderBullets(renderer, { bullet }, bulletTexture, BurstMotions);
         }
     }
+
+    // 设置绘制颜色为红色
+    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+    // 绘制角色的碰撞箱
+    SDL_RenderDrawRect(renderer, &player.bumpbox);
+    // 绘制怪物的碰撞箱
+    for (const auto& fly : Flies) {
+        SDL_RenderDrawRect(renderer, &fly.bumpbox);
+    }
+
+
+
+
     // 更新角色动画
     updatePlayerMotion(renderer, BackMotions, FrontMotions, RightMotions, LeftMotions, BackHeadMotions,
-        FrontHeadMotions, RightHeadMotions, LeftHeadMotions, headrect, bodyrect, keyStates, bodyDirection, is_attacking);
+        FrontHeadMotions, RightHeadMotions, LeftHeadMotions, headrect, bodyrect, keyStates, bodyDirection, is_attacking, player);
     // 其他方向的子弹渲染（不受遮挡）
     for (const auto& bullet : bullets) {
         if (bullet.direction.radian != 3 * PI / 2 || bullet.bumpbox.y + bullet.bumpbox.h >= headrect.y + headrect.h) {
@@ -934,17 +1013,18 @@ void renderScene(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Text
     }
     // 渲染苍蝇怪
     for (auto& fly : flies) {
-        SDL_Rect flyrect = { static_cast<int>(fly.x), static_cast<int>(fly.y), 96, 96 };
         if (fly.state == ATTACK) {
-            flyAttackMotion(renderer, FlyMotions, flyrect, const_cast<FLY&>(fly));
+            flyAttackMotion(renderer, FlyMotions, fly.bumpbox, const_cast<FLY&>(fly), player);
         }
         else {
-            flyIdleMotion(renderer, FlyMotions, flyrect, const_cast<FLY&>(fly));
+            flyIdleMotion(renderer, FlyMotions, fly.bumpbox, const_cast<FLY&>(fly));
         }
     }
     // 渲染怪物子弹
     renderBullets(renderer, FlyBullets, enemy_bullet_texture, EnemyBurstMotions);
 }
+
+
 
 
 
@@ -1024,6 +1104,9 @@ int main(int, char**) {
     
     SDL_Texture* bullet_texture = IMG_LoadTexture(renderer, "ISAAC/Characters/bullet.png");
     SDL_Texture* enemy_bullet_texture = IMG_LoadTexture(renderer, "ISAAC/Monsters/enemy_bullet.png");
+	SDL_Texture* full_heart = IMG_LoadTexture(renderer, "ISAAC/Characters/full_heart.png");
+	SDL_Texture* half_heart = IMG_LoadTexture(renderer, "ISAAC/Characters/half_heart.png");
+	SDL_Texture* empty_heart = IMG_LoadTexture(renderer, "ISAAC/Characters/empty_heart.png");
 
     /* 初始化动画纹理数组 */
     vector<SDL_Texture*> BackMotions;
@@ -1178,7 +1261,7 @@ int main(int, char**) {
     Uint32 last_shoot_time = SDL_GetTicks(); // 上次射击时间
     bool is_attacking = false; // 是否正在攻击
     Uint32 attack_start_time = 0; // 攻击开始时间
-    PLAYER isaac(bodyrect.x, bodyrect.y, headrect.w, headrect.h + bodyrect.h, 6, 2, 3.5, 3, 7, 500); // 创建角色
+    PLAYER isaac(bodyrect.x, bodyrect.y, headrect.w, headrect.h, 12, 2, 3.5, 3, 7, 500); // 创建角色
 
     //随机生成苍蝇怪
     srand(time(NULL));
@@ -1192,15 +1275,24 @@ int main(int, char**) {
     bool black_screen = false; // 是否处于黑屏状态
 
     while (!isquit) {
+
+        if (isaac.HP <= 0) {
+            // 退出程序
+            isquit = true;
+            // 或者可以播放死亡动画等
+        }
+
         // 处理事件
         processInput(event, isquit, keyStates);
 
         // 每帧处理射击
         processShooting(keyStates, head_direction, headrect, isaac, last_shoot_time, is_attacking, attack_start_time);
 
-        // 更新子弹位置
-        updateBullets(Bullets, window_width, window_height, BurstMotions);
-        updateBullets(FlyBullets, window_width, window_height, EnemyBurstMotions); // 更新怪物子弹位置
+        // 更新玩家子弹
+        updateBullets(Bullets, window_width, window_height, BurstMotions, false, isaac);
+        // 更新怪物子弹
+        updateBullets(FlyBullets, window_width, window_height, EnemyBurstMotions, true, isaac);
+
 
         // 更新怪物位置
         updateMonsters(Flies, isaac, window_width, window_height);
@@ -1241,12 +1333,13 @@ int main(int, char**) {
         }
 
         // 渲染画面
-        if (!black_screen) {
-            renderScene(renderer, Bullets, bullet_texture, headrect, bodyrect, BackMotions, FrontMotions,
-                RightMotions, LeftMotions, BackHeadMotions, FrontHeadMotions, RightHeadMotions, LeftHeadMotions,
-                keyStates, bodyDirection, is_attacking, BurstMotions, Flies, FlyMotions, enemy_bullet_texture, EnemyBurstMotions);
-        }
 
+        if (!black_screen) {
+            renderScene(renderer, Bullets, bullet_texture, headrect, bodyrect, BackMotions, FrontMotions, RightMotions, LeftMotions,
+                BackHeadMotions, FrontHeadMotions, RightHeadMotions, LeftHeadMotions, keyStates, bodyDirection, is_attacking,
+                BurstMotions, Flies, FlyMotions, enemy_bullet_texture, EnemyBurstMotions, isaac, full_heart, half_heart, empty_heart);
+
+        }
         // 刷新画布     
         SDL_RenderPresent(renderer);
 
