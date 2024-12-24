@@ -91,7 +91,42 @@ public:
 };
 
 
+// 结束界面函数
+void renderGameOverScreen(SDL_Renderer* renderer, TTF_Font* font, int window_width, int window_height) {
+    // 设置背景颜色为黑色
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
 
+    // 渲染 "Game Over" 文字
+    SDL_Color whiteColor = { 255, 255, 255, 255 };
+    SDL_Surface* gameOverSurface = TTF_RenderText_Solid(font, "Game Over", whiteColor);
+    SDL_Texture* gameOverTexture = SDL_CreateTextureFromSurface(renderer, gameOverSurface);
+    SDL_Rect gameOverRect;
+    gameOverRect.w = gameOverSurface->w;
+    gameOverRect.h = gameOverSurface->h;
+    gameOverRect.x = (window_width - gameOverRect.w) / 2;
+    gameOverRect.y = (window_height - gameOverRect.h) / 2 - 50;
+    SDL_RenderCopy(renderer, gameOverTexture, NULL, &gameOverRect);
+
+    // 渲染 "Press Enter to Restart or Esc to Exit" 文字
+    SDL_Surface* exitSurface = TTF_RenderText_Solid(font, "Press Enter to Restart or Esc to Exit", whiteColor);
+    SDL_Texture* exitTexture = SDL_CreateTextureFromSurface(renderer, exitSurface);
+    SDL_Rect exitRect;
+    exitRect.w = exitSurface->w;
+    exitRect.h = exitSurface->h;
+    exitRect.x = (window_width - exitRect.w) / 2;
+    exitRect.y = (window_height - exitRect.h) / 2 + 50;
+    SDL_RenderCopy(renderer, exitTexture, NULL, &exitRect);
+
+    // 更新屏幕
+    SDL_RenderPresent(renderer);
+
+    // 释放资源
+    SDL_FreeSurface(gameOverSurface);
+    SDL_DestroyTexture(gameOverTexture);
+    SDL_FreeSurface(exitSurface);
+    SDL_DestroyTexture(exitTexture);
+}
 
 
 /* —————————— 子弹 —————————— */
@@ -1059,16 +1094,18 @@ int main(int, char**) {
             }
         }
 
-        // 渲染开始界面
+        // 清屏
         SDL_RenderClear(renderer);
+
+        // 渲染开始界面
         SDL_RenderCopy(renderer, start_screen, NULL, NULL);
-        SDL_RenderPresent(renderer);
 
         SDL_Delay(16); // 控制帧率
 
         // 渲染文字时，指定颜色
         SDL_Color blackColor = { 0, 0, 0, 0 };
-        renderText(renderer, "按 Enter 键开始游戏", window_width / 2 - 150, window_height - 100, blackColor);
+        renderText(renderer, "Press Enter To Start", window_width / 2 , window_height /2, blackColor);
+
 
         SDL_RenderPresent(renderer);
 
@@ -1263,7 +1300,7 @@ int main(int, char**) {
     PLAYER isaac(bodyrect.x, bodyrect.y, headrect.w, headrect.h, 12, 2, 3.5, 3, 7, 500); // 创建角色
 
 
-
+    /*结束界面*/
 
 
 
@@ -1276,9 +1313,40 @@ int main(int, char**) {
     while (!isquit) {
 
         if (isaac.HP <= 0) {
-            // 退出程序
-            isquit = true;
-            // 或者可以播放死亡动画等
+            // 显示结束界面
+            renderGameOverScreen(renderer, ttfFont, window_width, window_height);
+            // 等待用户按下回车键重新开始或按下ESC键退出游戏
+            bool gameOver = true;
+            while (gameOver) {
+                while (SDL_PollEvent(&event)) {
+                    if (event.type == SDL_QUIT) {
+                        isquit = true;
+                        gameOver = false;
+                    }
+                    if (event.type == SDL_KEYDOWN) {
+                        if (event.key.keysym.sym == SDLK_RETURN) {
+                            // 重新开始游戏
+                            isaac.HP = 12; // 重置角色血量
+                            isaac.x = window_width / 2; // 重置角色位置
+                            isaac.y = window_height / 2;
+                            headrect.x = window_width / 2 - headrect.w / 2;
+                            headrect.y = window_height / 2 - headrect.h / 2 - 12;
+                            bodyrect.x = window_width / 2 - bodyrect.w / 2;
+                            bodyrect.y = window_height / 2 - bodyrect.h / 2 + 12;
+                            Bullets.clear(); // 清空子弹
+                            FlyBullets.clear(); // 清空怪物子弹
+                            Flies.clear(); // 清空怪物
+                            generateMonster(room_number, isaac, fly_standard); // 重新生成怪物
+                            gameOver = false;
+                        }
+                        if (event.key.keysym.sym == SDLK_ESCAPE) {
+                            isquit = true;
+                            gameOver = false;
+                        }
+                    }
+                }
+            }
+            continue;
         }
 
         // 处理事件
