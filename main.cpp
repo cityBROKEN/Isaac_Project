@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <random>
 #include <map>
+
 #include < fstream >
 #include "font.h"
 #include "media.h"
@@ -48,7 +49,28 @@ const int window_width = 1368;
 const int window_height = 768;
 
 
-
+/* —————————— 障碍物 —————————— */
+class OBSTACLE {
+public:
+    int x, y; // 障碍物坐标
+    int w, h; // 障碍物宽度和高度
+    SDL_Rect rect; // 障碍物的矩形区域
+    SDL_Texture* texture; // 障碍物的纹理
+	SDL_Rect collisionRect; // 障碍物的碰撞箱
+    OBSTACLE(int x, int y, int w, int h, SDL_Texture* texture) {
+        this->x = x;
+        this->y = y;
+        this->w = w;
+        this->h = h;
+        this->rect = { x, y, w, h };
+        this->texture = texture;
+        // 初始化碰撞箱，使其比实际障碍物小一些
+        int collisionMargin = 20; // 碰撞箱缩小的边距
+        this->collisionRect = { x + collisionMargin, y + collisionMargin, w - 2 * collisionMargin, h - 2 * collisionMargin };
+    
+    }
+};
+vector<OBSTACLE> Obstacles; // 障碍物容器
 
 
 
@@ -228,8 +250,15 @@ vector<BULLET> FlyBullets;//苍蝇怪子弹容器
 
 
 
+/* —————————— 随机数 —————————— */
+int randomNumberOneToTen() {
+    std::random_device rd;  // 创建随机数种子
+    std::mt19937 gen(rd()); // 生成随机数引擎，使用梅森旋转算法
+    std::uniform_int_distribution<> dis(1, 7); // 定义随机数范围为[1, 7]
 
-
+    int random_number = dis(gen); // 生成随机数
+	return random_number;
+}
 
 
 
@@ -728,8 +757,23 @@ void switchRoom(SDL_Renderer* renderer, SDL_Texture* newRoomTexture, SDL_Rect& h
     // 清空当前子弹
     Bullets.clear();
     FlyBullets.clear();
+    // 清除障碍物
+    Obstacles.clear();
 }
 
+void generateObstacles(int numObstacles, SDL_Texture* obstacleTexture) {
+    uniform_int_distribution<> Xdis(150, window_width - 150);
+    uniform_int_distribution<> Ydis(120, window_height - 120);
+    // 可以根据纹理的实际尺寸设置固定的宽高
+    int obstacleWidth = 100; // 纹理宽度
+    int obstacleHeight = 100; // 纹理高度
+    for (int i = 0; i < numObstacles; ++i) {
+        int x = Xdis(gen);
+        int y = Ydis(gen);
+        Obstacles.push_back(OBSTACLE(x, y, obstacleWidth, obstacleHeight, obstacleTexture));
+        //SDL_Log("Obstacle generated at position (%d, %d)", x, y); // 输出障碍物位置
+    }
+}
 
 
 
@@ -829,6 +873,13 @@ void processShooting(bool keyStates[8], Direction& head_direction, SDL_Rect& hea
 // 更新角色位置
 void updatePlayerPosition(SDL_Rect& headrect, SDL_Rect& bodyrect, const bool keyStates[4], int window_width,
     int window_height, int& bodyDirection, PLAYER& isaac) {
+    // 保存原始位置
+    int originalX = headrect.x;
+    int originalY = headrect.y;
+    int originalBodyX = bodyrect.x;
+    int originalBodyY = bodyrect.y;
+
+    // 尝试更新位置
     if (keyStates[0] && headrect.y > 50) {
         headrect.y -= 2.5 * isaac.speed;
         bodyrect.y -= 2.5 * isaac.speed;
@@ -852,20 +903,42 @@ void updatePlayerPosition(SDL_Rect& headrect, SDL_Rect& bodyrect, const bool key
     else {
         bodyDirection = 0; // 静止
     }
-    // 更新 isaac 的中心点坐标
+
+    // 更新角色的碰撞箱
     isaac.x = headrect.x + headrect.w / 2 - 45;
     isaac.y = headrect.y + (headrect.h + bodyrect.h) / 2 - 65;
-    // 更新角色的碰撞箱
     isaac.bumpbox.x = headrect.x + 15;
     isaac.bumpbox.y = headrect.y + 10;
     isaac.bumpbox.w = headrect.w - 30;
     isaac.bumpbox.h = headrect.h - 10;
-    // 在主循环或专门的更新函数中
+
+    // 检测与障碍物的碰撞
+    bool collided = false;
+    for (const auto& obstacle : Obstacles) {
+        if (SDL_HasIntersection(&isaac.bumpbox, &obstacle.collisionRect)) {
+            collided = true;
+            break;
+        }
+    }
+
+    // 如果发生碰撞，恢复原始位置
+    if (collided) {
+        headrect.x = originalX;
+        headrect.y = originalY;
+        bodyrect.x = originalBodyX;
+        bodyrect.y = originalBodyY;
+
+        isaac.x = headrect.x + headrect.w / 2 - 45;
+        isaac.y = headrect.y + (headrect.h + bodyrect.h) / 2 - 65;
+        isaac.bumpbox.x = headrect.x + 15;
+        isaac.bumpbox.y = headrect.y + 10;
+    }
+
+    // 更新无敌状态的计时
     Uint32 currentTime = SDL_GetTicks();
     if (isaac.isInvincible && currentTime - isaac.invincibleStartTime >= isaac.invincibleDuration) {
         isaac.isInvincible = false; // 结束无敌状态
     }
-
 }
 // 更新角色动画
 void updatePlayerMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BackMotions, vector<SDL_Texture*>& FrontMotions,
@@ -919,10 +992,21 @@ void updateBullets(vector<BULLET>& bullets, int window_width, int window_height,
     for (auto it = bullets.begin(); it != bullets.end();) {
         it->update();
 
-        // 检查子弹是否碰到墙壁（窗口边界），如果碰到则爆裂
-        if (!it->isBursting && (it->bumpbox.x < 120 || it->bumpbox.x > window_width - it->bumpbox.w - 120 ||
-            it->bumpbox.y < 90 || it->bumpbox.y > window_height - it->bumpbox.h - 100 )) {
-            it->burst();
+        // 检查子弹是否碰到墙壁或障碍物，如果碰到则爆裂
+        if (!it->isBursting) {
+            // 检查墙壁
+            if (it->bumpbox.x < 120 || it->bumpbox.x > window_width - it->bumpbox.w - 120 ||
+                it->bumpbox.y < 90 || it->bumpbox.y > window_height - it->bumpbox.h - 100) {
+                it->burst();
+            }
+
+            // 检查障碍物
+            for (const auto& obstacle : Obstacles) {
+                if (SDL_HasIntersection(&it->bumpbox, &obstacle.collisionRect)) {
+                    it->burst();
+                    break;
+                }
+            }
         }
 
         // 碰撞检测
@@ -1142,6 +1226,13 @@ int main(int, char**) {
     }
     Mix_PlayMusic(main_music, -1);
 
+    // 加载障碍物纹理
+    SDL_Texture* obstacleTexture = IMG_LoadTexture(renderer, "ISAAC/Obstacle/stone.png");
+    if (obstacleTexture == NULL) {
+        SDL_Log("Failed to load obstacle texture: %s", IMG_GetError());
+        return 1;
+    }
+
     /*开始界面*/
 
     // 创建开始界面纹理
@@ -1182,6 +1273,7 @@ int main(int, char**) {
 
         SDL_Delay(16); // 控制帧率
     }
+
 
 
 
@@ -1459,10 +1551,12 @@ int main(int, char**) {
         }
            
         // 检查是否达到延迟时间
-        if (switching_room && SDL_GetTicks() - switch_start_time >= 1000) { // 延长到 5 秒
+        if (switching_room && SDL_GetTicks() - switch_start_time >= 1000) { // 延长到 1 秒
             switchRoom(renderer, basement, headrect, bodyrect,isaac, fly_standard);
             switching_room = false;
             black_screen = false;
+			int obstacle_number = randomNumberOneToTen(); // 随机生成1-10个障碍物
+            generateObstacles(obstacle_number, obstacleTexture); // 生成1个障碍物
             // 随机生成新的怪物
             generateMonster(room_number, isaac, fly_standard);
 			room_number++;
@@ -1479,7 +1573,10 @@ int main(int, char**) {
             SDL_RenderCopy(renderer, basement, NULL, NULL);
         }
 
-        
+        // 渲染障碍物
+        for (const auto& obstacle : Obstacles) {
+            SDL_RenderCopy(renderer, obstacle.texture, NULL, &obstacle.rect);
+        }
 
 
         /* —————————————— 渲染画面 ——————————————*/
@@ -1496,16 +1593,24 @@ int main(int, char**) {
 
 
             //—————————————碰撞箱绘制
-            /*
+            
             // 设置绘制颜色为红色
             SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
             // 绘制角色的碰撞箱
-            SDL_RenderDrawRect(renderer, &player.bumpbox);
+            SDL_RenderDrawRect(renderer, &isaac.bumpbox);
             // 绘制怪物的碰撞箱
             for (const auto& fly : Flies) {
                 SDL_RenderDrawRect(renderer, &fly.bumpbox);
             }
-            */
+			// 绘制子弹的碰撞箱
+			for (const auto& bullet : Bullets) {
+				SDL_RenderDrawRect(renderer, &bullet.bumpbox);
+			}
+			// 绘制障碍物的碰撞箱
+			for (const auto& obstacle : Obstacles) {
+				SDL_RenderDrawRect(renderer, &obstacle.collisionRect);
+			}
+            
 
 
 
@@ -1562,6 +1667,7 @@ int main(int, char**) {
     TTF_Quit();
     Mix_FreeMusic(main_music);
     Mix_CloseAudio();
+    SDL_DestroyTexture(obstacleTexture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
