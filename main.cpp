@@ -362,6 +362,7 @@ public:
 };
 
 vector<FLY> Flies;
+FLY fly_standard(100, 100);
 
 //蜘蛛怪
 class SPIDER :public MONSTER {
@@ -565,11 +566,6 @@ void flyAttackMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotions, v
         }
     }
 }
-
-
-
-
-
 // 苍蝇怪死亡动画
 void flyDeadMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyDeadMotions, SDL_Rect& flyrect) {
     static int currentFrame = 0;
@@ -588,33 +584,60 @@ void flyDeadMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyDeadMotions,
 
 
 
-/* 切换房间 */
-int room_number = 2;
-void switchRoom(SDL_Renderer* renderer, SDL_Texture* newRoomTexture, SDL_Rect& headrect, SDL_Rect& bodyrect) {
+
+
+
+
+
+
+int room_number = 1;
+mt19937 Xelem(rd()); // 使用 Mersenne Twister 算法
+mt19937 Yelem(rd()); // 使用 Mersenne Twister 算法
+uniform_int_distribution<> Xdis(window_width/2 - 550, window_width/2 + 550 ); // 生成 0 到 window_width - 96 之间的随机数
+uniform_int_distribution<> Ydis(window_height/2 - 275 , window_height + 275); // 生成 0 到 window_height - 96 之间的随机数
+//随机刷怪函数
+void generateMonster(int room_number ,PLAYER player, FLY fly) {
+	for (int i = 0; i < room_number; i++) {
+		int x = Xdis(Xelem);
+		int y = Ydis(Yelem);
+		//检测x、y是否在玩家碰撞箱内
+		while (x + fly.bumpbox.w + 100 >= player.bumpbox.x && x - 100 <= player.bumpbox.x + player.bumpbox.w &&
+            y - 100 <= player.bumpbox.y + player.bumpbox.h && y + fly.bumpbox.h + 100 >= player.bumpbox.y) {
+			x = Xdis(Xelem);
+			y = Ydis(Yelem);
+		}
+		FLY fly(x, y);
+		Flies.push_back(fly);
+	}
+}   
+// 切换房间 
+void switchRoom(SDL_Renderer* renderer, SDL_Texture* newRoomTexture, SDL_Rect& headrect, SDL_Rect& bodyrect, PLAYER player, FLY fly) {
     // 渲染新房间背景
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, newRoomTexture, NULL, NULL);
     SDL_RenderPresent(renderer);
-
     // 重置角色位置
     headrect.x = window_width / 2 - headrect.w / 2;
-    headrect.y = window_height / 2 - headrect.h / 2 - 12;
+    headrect.y = window_height / 2 - headrect.h / 2 + 200;
     bodyrect.x = window_width / 2 - bodyrect.w / 2;
-    bodyrect.y = window_height / 2 - bodyrect.h / 2 + 12;
-
+    bodyrect.y = window_height / 2 - bodyrect.h / 2 + 225;
     // 清空当前子弹
     Bullets.clear();
     FlyBullets.clear();
-
     // 随机生成新的怪物
-    Flies.clear();
-    srand(time(NULL));
-    for (int i = 0; i < room_number; i++) {
-        FLY fly(rand() % window_width, rand() % window_height);
-        Flies.push_back(fly);
-    }
+	generateMonster(room_number, player, fly);
     room_number++;
 }
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1057,6 +1080,8 @@ int main(int, char**) {
     /*释放开始界面纹理*/
     SDL_DestroyTexture(start_screen);
 
+
+
     /* 创建房间纹理 */
     SDL_Texture* basement = IMG_LoadTexture(renderer, "ISAAC/Backgrounds/basement.png");
     SDL_Texture* black = IMG_LoadTexture(renderer, "ISAAC/Backgrounds/black.png");
@@ -1214,6 +1239,8 @@ int main(int, char**) {
         }
     }
 
+
+
     /* 初始化纹理位置 */
     //头部位
     SDL_Rect headrect;
@@ -1235,12 +1262,8 @@ int main(int, char**) {
     Uint32 attack_start_time = 0; // 攻击开始时间
     PLAYER isaac(bodyrect.x, bodyrect.y, headrect.w, headrect.h, 12, 2, 3.5, 3, 7, 500); // 创建角色
 
-    //随机生成苍蝇怪
-    srand(time(NULL));
-    for (int i = 0; i < 1; i++) {
-        FLY fly(rand() % window_width, rand() % window_height);
-        Flies.push_back(fly);
-    }
+
+
 
 
 
@@ -1289,7 +1312,7 @@ int main(int, char**) {
             (headrect.y >= 0) && (headrect.y <= 50) && Flies.empty()) {
             //SDL_Log("Player entered the target area.");
             if (!switching_room) {
-                switchRoom(renderer, black, headrect, bodyrect);
+                switchRoom(renderer, black, headrect, bodyrect, isaac, fly_standard);
                 switch_start_time = SDL_GetTicks();
                 switching_room = true;
                 black_screen = true;
@@ -1298,7 +1321,7 @@ int main(int, char**) {
            
         // 检查是否达到延迟时间
         if (switching_room && SDL_GetTicks() - switch_start_time >= 1000) { // 延长到 5 秒
-            switchRoom(renderer, basement, headrect, bodyrect);
+            switchRoom(renderer, basement, headrect, bodyrect,isaac, fly_standard);
             switching_room = false;
             black_screen = false;
         }
