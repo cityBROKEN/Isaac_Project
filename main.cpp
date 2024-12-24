@@ -309,7 +309,7 @@ public:
         case 2:
             // 越靠近玩家速度越慢
             if (dist > 0) {
-                double moveSpeed = speed * (dist / 500.0); // 调整 500.0 为合适的比例
+                double moveSpeed = speed * (dist / 2500.0); // 调整 500.0 为合适的比例
                 vx = dirX * moveSpeed;
                 vy = dirY * moveSpeed;
             }
@@ -762,8 +762,8 @@ void switchRoom(SDL_Renderer* renderer, SDL_Texture* newRoomTexture, SDL_Rect& h
 }
 
 void generateObstacles(int numObstacles, SDL_Texture* obstacleTexture) {
-    uniform_int_distribution<> Xdis(150, window_width - 150);
-    uniform_int_distribution<> Ydis(120, window_height - 120);
+    uniform_int_distribution<> Xdis(150, window_width - 250);
+    uniform_int_distribution<> Ydis(120, window_height - 170);
     // 可以根据纹理的实际尺寸设置固定的宽高
     int obstacleWidth = 100; // 纹理宽度
     int obstacleHeight = 100; // 纹理高度
@@ -1593,7 +1593,7 @@ int main(int, char**) {
 
 
             //—————————————碰撞箱绘制
-            
+            /*
             // 设置绘制颜色为红色
             SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
             // 绘制角色的碰撞箱
@@ -1610,7 +1610,7 @@ int main(int, char**) {
 			for (const auto& obstacle : Obstacles) {
 				SDL_RenderDrawRect(renderer, &obstacle.collisionRect);
 			}
-            
+            */
 
 
 
