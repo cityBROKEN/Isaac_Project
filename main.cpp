@@ -248,60 +248,126 @@ public:
     double HP;//怪物血量
     int move_type;//怪物移动方式
     double speed;//怪物速度
+    double vx; // x轴速度分量
+    double vy; // y轴速度分量
     double damage;//怪物伤害
     SDL_Rect bumpbox;//碰撞箱
+    SDL_Rect spriteRect;//贴图矩形
     State state;//怪物状态
     Uint32 lastMoveTime;  // 上次移动的时间
     Uint32 moveInterval;  // 移动间隔
     bool isAlive = true;//怪物是否存活
-    //怪物行为函数
-    void move(const PLAYER& player) { // 怪物移动
-        Uint32 currentTime = SDL_GetTicks();
-        if (currentTime - lastMoveTime >= moveInterval) { // 检查是否达到移动间隔
-            switch (move_type) {
-            case 1: // 追踪玩家移动，且速度不变
-                if (x < player.x) {
-                    x += speed;
-                }
-                else if (x > player.x) {
-                    x -= speed;
-                }
-                if (y < player.y) {
-                    y += speed;
-                }
-                else if (y > player.y) {
-                    y -= speed;
-                }
-                break;
-            case 2: // 追踪玩家移动，且越靠近玩家速度越慢
-            {
-                // 计算怪物与玩家的距离
-                double dist = distance(x, y, player.x, player.y);
-                // 为了防止除以零，设置一个最小距离
-                if (dist < 1.0) {
-                    dist = 1.0;
-                }
-                // 计算方向向量，并归一化
-                double dx = (player.x - x) / dist;
-                double dy = (player.y - y) / dist;
-                // 计算移动速度，距离越大速度越快，距离越小速度越慢
-                double moveSpeed = speed * (dist / 1000.0); // 100.0 是一个调节系数，可根据需要调整
-                // 更新怪物位置
-                x += dx * moveSpeed;
-                y += dy * moveSpeed;
+    
+    // 怪物行为函数
+	// 怪物移动
+    void move(const PLAYER& player) {
+        // 计算怪物与玩家的距离和方向
+        double dx = player.x - x;
+        double dy = player.y - y;
+        double dist = sqrt(dx * dx + dy * dy);
+
+        // 归一化方向向量
+        double dirX = dx / dist;
+        double dirY = dy / dist;
+
+        // 根据移动类型调整怪物的速度
+        switch (move_type) {
+        case 1:
+            // 追踪玩家，速度不变
+            vx = dirX * speed;
+            vy = dirY * speed;
+            break;
+        case 2:
+            // 越靠近玩家速度越慢
+            if (dist > 0) {
+                double moveSpeed = speed * (dist / 500.0); // 调整 500.0 为合适的比例
+                vx = dirX * moveSpeed;
+                vy = dirY * moveSpeed;
             }
             break;
-
-            case 3: // 在一定范围内随机移动
-                uniform_real_distribution<> dis(0.0, 1.0);
-                double random_element = dis(gen);
-                double random_radian = random_element * 2 * PI;
-                x += 0.5 * speed * cos(random_radian);
-                y += 0.5 * speed * sin(random_radian);
-                break;
+        case 3:
+            // 随机移动
+        {
+            uniform_real_distribution<> dis(-1.0, 1.0);
+            vx += dis(gen) * speed * 0.1;
+            vy += dis(gen) * speed * 0.1;
+            // 限制速度
+            double maxSpeed = speed;
+            double currentSpeed = sqrt(vx * vx + vy * vy);
+            if (currentSpeed > maxSpeed) {
+                vx = (vx / currentSpeed) * maxSpeed;
+                vy = (vy / currentSpeed) * maxSpeed;
             }
-            lastMoveTime = currentTime; // 更新上次移动时间
         }
+        break;
+        }
+
+        // 更新位置
+        x += vx;
+        y += vy;
+
+        // 应用摩擦力，逐渐减速（可选）
+        vx *= 0.9;
+        vy *= 0.9;
+
+        // 更新碰撞箱和贴图的位置
+        bumpbox.x = static_cast<int>(x) + (spriteRect.w - bumpbox.w) / 2;
+        bumpbox.y = static_cast<int>(y) + (spriteRect.h - bumpbox.h) / 2;
+        spriteRect.x = static_cast<int>(x);
+        spriteRect.y = static_cast<int>(y);
+
+        // 边界检测，防止怪物移出屏幕（可选）
+        if (x < 120) {
+            x = 120;
+            vx = -vx * 0.5; // 碰撞反弹效果
+        }
+        else if (x > window_width - bumpbox.w - 120) {
+            x = window_width - bumpbox.w - 120;
+            vx = -vx * 0.5;
+        }
+        if (y < 100) {
+            y = 100;
+            vy = -vy * 0.5;
+        }
+        else if (y > window_height - bumpbox.h - 100) {
+            y = window_height - bumpbox.h - 100;
+            vy = -vy * 0.5;
+        }
+    }
+
+    // 更新位置的方法
+    void updatePosition() {
+        // 更新位置
+        x += vx;
+        y += vy;
+
+        // 应用摩擦力，逐渐减速
+        vx *= 0.9; // 摩擦系数，可根据需要调整
+        vy *= 0.9;
+
+        // 边界检测，防止怪物移出屏幕
+        if (x < 120) {
+            x = 120;
+            vx = 0;
+        }
+        else if (x > window_width - bumpbox.w - 120) {
+            x = window_width - bumpbox.w - 120;
+            vx = 0;
+        }
+        if (y < 100) {
+            y = 100;
+            vy = 0;
+        }
+        else if (y > window_height - bumpbox.h - 100) {
+            y = window_height - bumpbox.h - 100;
+            vy = 0;
+        }
+
+        // 更新碰撞箱和贴图的位置
+        bumpbox.x = static_cast<int>(x) + (spriteRect.w - bumpbox.w) / 2;
+        bumpbox.y = static_cast<int>(y) + (spriteRect.h - bumpbox.h) / 2;
+        spriteRect.x = static_cast<int>(x);
+        spriteRect.y = static_cast<int>(y);
     }
     void die() {//怪物死亡
         isAlive = false;
@@ -319,7 +385,7 @@ public:
     bool isReadyToAttack; // 是否准备好再次攻击
     bool hasShot; // 是否已经发射过子弹
     SDL_Rect bumpbox;//碰撞箱
-	SDL_Rect spriteRect;//贴图矩形
+	
     FLY(int x, int y) {
         id = 1;
         strcpy_s(name, "FLY");
@@ -328,6 +394,8 @@ public:
         HP = 10;
         move_type = 1;
         speed = 3;
+        vx = 0;
+        vy = 0;
         damage = 1;
         lastShootTime = 0;
         shootInterval = 2000; // 设置攻击间隔为2000毫秒（2秒）
@@ -628,16 +696,17 @@ void flyDeadMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyDeadMotions,
 int room_number = 1;
 mt19937 Xelem(rd()); // 使用 Mersenne Twister 算法
 mt19937 Yelem(rd()); // 使用 Mersenne Twister 算法
-uniform_int_distribution<> Xdis(window_width/2 - 550, window_width/2 + 550 ); // 生成 0 到 window_width - 96 之间的随机数
-uniform_int_distribution<> Ydis(window_height/2 - 275 , window_height + 275); // 生成 0 到 window_height - 96 之间的随机数
+
 //随机刷怪函数
 void generateMonster(int room_number ,PLAYER player, FLY fly) {
+    uniform_int_distribution<> Xdis(150, window_width - fly.bumpbox.w - 150);
+    uniform_int_distribution<> Ydis(120, window_height - fly.bumpbox.h - 120);
 	for (int i = 0; i < room_number; i++) {
 		int x = Xdis(Xelem);
 		int y = Ydis(Yelem);
 		//检测x、y是否在玩家碰撞箱内
-		while (x + fly.bumpbox.w + 100 >= player.bumpbox.x && x - 100 <= player.bumpbox.x + player.bumpbox.w &&
-            y - 100 <= player.bumpbox.y + player.bumpbox.h && y + fly.bumpbox.h + 100 >= player.bumpbox.y) {
+		while (x + fly.bumpbox.w + 200 >= player.bumpbox.x && x - 200 <= player.bumpbox.x + player.bumpbox.w &&
+            y - 200 <= player.bumpbox.y + player.bumpbox.h && y + fly.bumpbox.h + 200 >= player.bumpbox.y) {
 			x = Xdis(Xelem);
 			y = Ydis(Yelem);
 		}
@@ -653,15 +722,12 @@ void switchRoom(SDL_Renderer* renderer, SDL_Texture* newRoomTexture, SDL_Rect& h
     SDL_RenderPresent(renderer);
     // 重置角色位置
     headrect.x = window_width / 2 - headrect.w / 2;
-    headrect.y = window_height / 2 - headrect.h / 2 + 200;
+    headrect.y = window_height / 2 - headrect.h / 2 + 180;
     bodyrect.x = window_width / 2 - bodyrect.w / 2;
-    bodyrect.y = window_height / 2 - bodyrect.h / 2 + 225;
+    bodyrect.y = window_height / 2 - bodyrect.h / 2 + 205;
     // 清空当前子弹
     Bullets.clear();
     FlyBullets.clear();
-    // 随机生成新的怪物
-	generateMonster(room_number, player, fly);
-    room_number++;
 }
 
 
@@ -679,7 +745,6 @@ void switchRoom(SDL_Renderer* renderer, SDL_Texture* newRoomTexture, SDL_Rect& h
 
 /* —————————— 事件处理和画面渲染 —————————— */
 
-// 定义按键状态数组，依次为W, A, S, D, UP, LEFT, DOWN, RIGHT
 bool keyStates[8] = { false, false, false, false, false, false, false, false };
 
 
@@ -774,7 +839,7 @@ void updatePlayerPosition(SDL_Rect& headrect, SDL_Rect& bodyrect, const bool key
         bodyrect.x -= 2.5 * isaac.speed;
         bodyDirection = 3; // 左
     }
-    else if (keyStates[2] && bodyrect.y < window_height - bodyrect.h - 120) {
+    else if (keyStates[2] && bodyrect.y < window_height - bodyrect.h - 130) {
         headrect.y += 2.5 * isaac.speed;
         bodyrect.y += 2.5 * isaac.speed;
         bodyDirection = 2; // 下
@@ -856,7 +921,7 @@ void updateBullets(vector<BULLET>& bullets, int window_width, int window_height,
 
         // 检查子弹是否碰到墙壁（窗口边界），如果碰到则爆裂
         if (!it->isBursting && (it->bumpbox.x < 120 || it->bumpbox.x > window_width - it->bumpbox.w - 120 ||
-            it->bumpbox.y < 100 || it->bumpbox.y > window_height - it->bumpbox.h - 100 )) {
+            it->bumpbox.y < 90 || it->bumpbox.y > window_height - it->bumpbox.h - 100 )) {
             it->burst();
         }
 
@@ -873,7 +938,6 @@ void updateBullets(vector<BULLET>& bullets, int window_width, int window_height,
                     it->burst();
                 }
             }
-
             else {
                 // 玩家子弹，检测是否击中怪物
                 for (auto& fly : Flies) {
@@ -883,6 +947,10 @@ void updateBullets(vector<BULLET>& bullets, int window_width, int window_height,
                         if (fly.HP <= 0) {
                             fly.die();
                         }
+                        // 计算击退效果
+                        double knockbackStrength = 5.0; // 击退力度，可根据需要调整
+                        fly.vx += knockbackStrength * cos(it->direction.radian);
+                        fly.vy += knockbackStrength * sin(it->direction.radian);
                         break;
                     }
                 }
@@ -960,6 +1028,9 @@ void updateMonsters(vector<FLY>& flies, PLAYER& player, int window_width, int wi
             it->detectState(player);
             it->updateMoveType(player);
             it->move(player);
+
+            // 更新位置，应用击退效果
+            it->updatePosition();
 
             // 检查是否达到攻击间隔
             Uint32 currentTime = SDL_GetTicks();
@@ -1392,7 +1463,12 @@ int main(int, char**) {
             switchRoom(renderer, basement, headrect, bodyrect,isaac, fly_standard);
             switching_room = false;
             black_screen = false;
+            // 随机生成新的怪物
+            generateMonster(room_number, isaac, fly_standard);
+			room_number++;
         }
+
+        
 
         // 渲染背景
         SDL_RenderClear(renderer);
