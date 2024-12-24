@@ -502,38 +502,70 @@ void bulletBurstMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BurstMotion
     SDL_RenderCopy(renderer, BurstMotions[currentFrame], NULL, &bulletrect);
 }
 // 苍蝇怪常态动画
-void flyIdleMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotions, SDL_Rect& flyrect, FLY& fly) {
-    Uint32 currentTime = SDL_GetTicks();
-    // 每100ms切换帧
-    if (currentTime - fly.lastFrameTime >= 100) {
-        fly.currentFrame = (fly.currentFrame + 1) % 2;
-        fly.lastFrameTime = currentTime;
+void flyIdleMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotions, vector<SDL_Texture*>& _FlyMotions, SDL_Rect& flyrect, FLY& fly , const PLAYER& player) {
+    if (player.x >= fly.x) {
+        Uint32 currentTime = SDL_GetTicks();
+        // 每100ms切换帧
+        if (currentTime - fly.lastFrameTime >= 100) {
+            fly.currentFrame = (fly.currentFrame + 1) % 2;
+            fly.lastFrameTime = currentTime;
+        }
+        SDL_RenderCopy(renderer, FlyMotions[fly.currentFrame], NULL, &flyrect);
     }
-    SDL_RenderCopy(renderer, FlyMotions[fly.currentFrame], NULL, &flyrect);
+	else {
+		Uint32 currentTime = SDL_GetTicks();
+		// 每100ms切换帧
+		if (currentTime - fly.lastFrameTime >= 100) {
+			fly.currentFrame = (fly.currentFrame + 1) % 2;
+			fly.lastFrameTime = currentTime;
+		}
+		SDL_RenderCopy(renderer, _FlyMotions[fly.currentFrame], NULL, &flyrect);
+	}
 }
 // 苍蝇怪攻击动画
-void flyAttackMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotions, SDL_Rect& flyrect, FLY& fly, const PLAYER& player) {
-    Uint32 currentTime = SDL_GetTicks();
-    // 每50ms切换帧
-    if (currentTime - fly.lastFrameTime >= 40) {
-        fly.currentFrame = (fly.currentFrame + 1) % 16;
-        fly.lastFrameTime = currentTime;
+void flyAttackMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotions, vector<SDL_Texture*>& _FlyMotions, SDL_Rect& flyrect, FLY& fly, const PLAYER& player) {
+    if (player.x >= fly.x) {
+        Uint32 currentTime = SDL_GetTicks();
+        // 每50ms切换帧
+        if (currentTime - fly.lastFrameTime >= 40) {
+            fly.currentFrame = (fly.currentFrame + 1) % 16;
+            fly.lastFrameTime = currentTime;
+        }
+        SDL_RenderCopy(renderer, FlyMotions[fly.currentFrame], NULL, &flyrect);
+        // 当动画帧为第9帧时发射子弹
+        if (fly.currentFrame == 8 && !fly.hasShot) {
+            fly.shoot(player);
+            fly.hasShot = true; // 设置已发射标志，防止重复发射
+        }
+        // 检查动画是否播放完毕
+        if (currentTime - fly.attackStartTime >= 440) { // 假设攻击动画持续800ms
+            fly.state = IDLE; // 设置为常态
+            fly.isReadyToAttack = false; // 设置为不准备攻击状态
+            fly.hasShot = false; // 重置已发射标志
+        }
     }
-    SDL_RenderCopy(renderer, FlyMotions[fly.currentFrame], NULL, &flyrect);
-
-    // 当动画帧为第9帧时发射子弹
-    if (fly.currentFrame == 8 && !fly.hasShot) {
-        fly.shoot(player);
-        fly.hasShot = true; // 设置已发射标志，防止重复发射
-    }
-
-    // 检查动画是否播放完毕
-    if (currentTime - fly.attackStartTime >= 440) { // 假设攻击动画持续800ms
-        fly.state = IDLE; // 设置为常态
-        fly.isReadyToAttack = false; // 设置为不准备攻击状态
-        fly.hasShot = false; // 重置已发射标志
+    else {
+        Uint32 currentTime = SDL_GetTicks();
+        // 每50ms切换帧
+        if (currentTime - fly.lastFrameTime >= 40) {
+            fly.currentFrame = (fly.currentFrame + 1) % 16;
+            fly.lastFrameTime = currentTime;
+        }
+        SDL_RenderCopy(renderer, _FlyMotions[fly.currentFrame], NULL, &flyrect);
+        // 当动画帧为第9帧时发射子弹
+        if (fly.currentFrame == 8 && !fly.hasShot) {
+            fly.shoot(player);
+            fly.hasShot = true; // 设置已发射标志，防止重复发射
+        }
+        // 检查动画是否播放完毕
+        if (currentTime - fly.attackStartTime >= 440) { // 假设攻击动画持续800ms
+            fly.state = IDLE; // 设置为常态
+            fly.isReadyToAttack = false; // 设置为不准备攻击状态
+            fly.hasShot = false; // 重置已发射标志
+        }
     }
 }
+
 
 
 
@@ -554,7 +586,10 @@ void flyDeadMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyDeadMotions,
 /* —————————————————————————————— */
 
 
+
+
 /* 切换房间 */
+int room_number = 2;
 void switchRoom(SDL_Renderer* renderer, SDL_Texture* newRoomTexture, SDL_Rect& headrect, SDL_Rect& bodyrect) {
     // 渲染新房间背景
     SDL_RenderClear(renderer);
@@ -574,10 +609,11 @@ void switchRoom(SDL_Renderer* renderer, SDL_Texture* newRoomTexture, SDL_Rect& h
     // 随机生成新的怪物
     Flies.clear();
     srand(time(NULL));
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < room_number; i++) {
         FLY fly(rand() % window_width, rand() % window_height);
         Flies.push_back(fly);
     }
+    room_number++;
 }
 
 
@@ -761,8 +797,8 @@ void updateBullets(vector<BULLET>& bullets, int window_width, int window_height,
         it->update();
 
         // 检查子弹是否碰到墙壁（窗口边界），如果碰到则爆裂
-        if (!it->isBursting && (it->bumpbox.x < 0 || it->bumpbox.x > window_width - it->bumpbox.w ||
-            it->bumpbox.y < 0 || it->bumpbox.y > window_height - it->bumpbox.h)) {
+        if (!it->isBursting && (it->bumpbox.x < 120 || it->bumpbox.x > window_width - it->bumpbox.w - 120 ||
+            it->bumpbox.y < 100 || it->bumpbox.y > window_height - it->bumpbox.h - 100 )) {
             it->burst();
         }
 
@@ -838,7 +874,7 @@ void renderPlayerHealth(SDL_Renderer* renderer, const PLAYER& player, SDL_Textur
     int heartHeight = 30;
 
     for (int i = 0; i < maxHearts; ++i) {
-        SDL_Rect heartRect = { 10 + i * (heartWidth + 5), 10, heartWidth, heartHeight };
+        SDL_Rect heartRect = { 10 + i * (heartWidth + 5), 10, 1.5*heartWidth, 1.5*heartHeight };
         if (player.HP >= (i + 1) * 2) {
             // 绘制满心
             SDL_RenderCopy(renderer, full_heart, NULL, &heartRect);
@@ -887,73 +923,6 @@ void updateMonsters(vector<FLY>& flies, PLAYER& player, int window_width, int wi
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-//渲染画面
-void renderScene(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Texture* bulletTexture,
-    SDL_Rect& headrect, SDL_Rect& bodyrect, vector<SDL_Texture*>& BackMotions, vector<SDL_Texture*>& FrontMotions,
-    vector<SDL_Texture*>& RightMotions, vector<SDL_Texture*>& LeftMotions, vector<SDL_Texture*>& BackHeadMotions,
-    vector<SDL_Texture*>& FrontHeadMotions, vector<SDL_Texture*>& RightHeadMotions, vector<SDL_Texture*>& LeftHeadMotions,
-    const bool keyStates[8], int bodyDirection, bool& is_attacking, vector<SDL_Texture*>& BurstMotions, vector<FLY>& flies,
-    vector<SDL_Texture*>& FlyMotions, SDL_Texture* enemy_bullet_texture, vector<SDL_Texture*>& EnemyBurstMotions, PLAYER& player,
-    SDL_Texture* full_heart, SDL_Texture* half_heart, SDL_Texture* empty_heart) {
-    // 绘制血量
-    renderPlayerHealth(renderer, player, full_heart, half_heart, empty_heart);
-    // 子弹向上时先渲染子弹，再渲染角色
-    for (const auto& bullet : bullets) {
-        if (bullet.direction.radian == 3 * PI / 2 && bullet.bumpbox.y + bullet.bumpbox.h < headrect.y + headrect.h) {
-            renderBullets(renderer, { bullet }, bulletTexture, BurstMotions);
-        }
-    }
-    
-
-
-    //—————————————碰撞箱绘制
-	/*
-    // 设置绘制颜色为红色
-    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-    // 绘制角色的碰撞箱
-    SDL_RenderDrawRect(renderer, &player.bumpbox);
-    // 绘制怪物的碰撞箱
-    for (const auto& fly : Flies) {
-        SDL_RenderDrawRect(renderer, &fly.bumpbox);
-    }
-    */
-
-
-
-    // 更新角色动画
-    updatePlayerMotion(renderer, BackMotions, FrontMotions, RightMotions, LeftMotions, BackHeadMotions,
-        FrontHeadMotions, RightHeadMotions, LeftHeadMotions, headrect, bodyrect, keyStates, bodyDirection, is_attacking, player);
-    // 其他方向的子弹渲染（不受遮挡）
-    for (const auto& bullet : bullets) {
-        if (bullet.direction.radian != 3 * PI / 2 || bullet.bumpbox.y + bullet.bumpbox.h >= headrect.y + headrect.h) {
-            renderBullets(renderer, { bullet }, bulletTexture, BurstMotions);
-        }
-    }
-    // 渲染苍蝇怪
-    for (auto& fly : flies) {
-        if (fly.state == ATTACK) {
-            flyAttackMotion(renderer, FlyMotions, fly.spriteRect, fly, player);
-        }
-        else {
-            flyIdleMotion(renderer, FlyMotions, fly.spriteRect, fly);
-        }
-    }
-    // 渲染怪物子弹
-    renderBullets(renderer, FlyBullets, enemy_bullet_texture, EnemyBurstMotions);
-}
-
 
 
 
@@ -1222,6 +1191,17 @@ int main(int, char**) {
             SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
         }
     }
+    vector<SDL_Texture*> _FlyMotions;
+    for (int i = 1; i <= 16; ++i) {
+        string filename = "ISAAC/Monsters/FLY/_FlyMotion" + to_string(i) + ".png";
+        SDL_Texture* texture = IMG_LoadTexture(renderer, filename.c_str());
+        if (texture) {
+            _FlyMotions.push_back(texture);
+        }
+        else {
+            SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
+        }
+    }
     vector<SDL_Texture*> FlyDeadMotions;
     for (int i = 1; i <= 11; ++i) {
         string filename = "ISAAC/Monsters/FLY/FlyDeadMotion" + to_string(i) + ".png";
@@ -1332,14 +1312,65 @@ int main(int, char**) {
             SDL_RenderCopy(renderer, basement, NULL, NULL);
         }
 
-        // 渲染画面
+        
+
+
+        /* —————————————— 渲染画面 ——————————————*/
 
         if (!black_screen) {
-            renderScene(renderer, Bullets, bullet_texture, headrect, bodyrect, BackMotions, FrontMotions, RightMotions, LeftMotions,
-                BackHeadMotions, FrontHeadMotions, RightHeadMotions, LeftHeadMotions, keyStates, bodyDirection, is_attacking,
-                BurstMotions, Flies, FlyMotions, enemy_bullet_texture, EnemyBurstMotions, isaac, full_heart, half_heart, empty_heart);
+            // 绘制血量
+            renderPlayerHealth(renderer, isaac, full_heart, half_heart, empty_heart);
+            // 子弹向上时先渲染子弹，再渲染角色
+            for (const auto& bullet : Bullets) {
+                if (bullet.direction.radian == 3 * PI / 2 && bullet.bumpbox.y + bullet.bumpbox.h < headrect.y + headrect.h) {
+                    renderBullets(renderer, { bullet }, bullet_texture, BurstMotions);
+                }
+            }
+
+
+            //—————————————碰撞箱绘制
+            /*
+            // 设置绘制颜色为红色
+            SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+            // 绘制角色的碰撞箱
+            SDL_RenderDrawRect(renderer, &player.bumpbox);
+            // 绘制怪物的碰撞箱
+            for (const auto& fly : Flies) {
+                SDL_RenderDrawRect(renderer, &fly.bumpbox);
+            }
+            */
+
+
+
+            // 更新角色动画
+            updatePlayerMotion(renderer, BackMotions, FrontMotions, RightMotions, LeftMotions, BackHeadMotions,
+                FrontHeadMotions, RightHeadMotions, LeftHeadMotions, headrect, bodyrect, keyStates, bodyDirection, is_attacking, isaac);
+            // 其他方向的子弹渲染（不受遮挡）
+            for (const auto& bullet : Bullets) {
+                if (bullet.direction.radian != 3 * PI / 2 || bullet.bumpbox.y + bullet.bumpbox.h >= headrect.y + headrect.h) {
+                    renderBullets(renderer, { bullet }, bullet_texture, BurstMotions);
+                }
+            }
+            // 渲染苍蝇怪
+            for (auto& fly : Flies) {
+                if (fly.state == ATTACK) {
+                    flyAttackMotion(renderer, FlyMotions, _FlyMotions, fly.spriteRect, fly, isaac);
+                }
+                else {
+                    flyIdleMotion(renderer, FlyMotions, _FlyMotions, fly.spriteRect, fly, isaac);
+                }
+            }
+            // 渲染怪物子弹
+            renderBullets(renderer, FlyBullets, enemy_bullet_texture, EnemyBurstMotions);
 
         }
+
+        /* —————————————————————————————— */
+
+
+
+
+
         // 刷新画布     
         SDL_RenderPresent(renderer);
 
