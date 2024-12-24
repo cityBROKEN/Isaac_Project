@@ -105,6 +105,7 @@ public:
     double damage;//子弹伤害
     double range;//子弹射程
     SDL_Rect bumpbox;//碰撞箱
+	SDL_Rect spriteRect;//贴图矩形
     DIRECTION direction;//子弹飞行方向
     bool isAlive = true;//子弹是否存活
     bool isBursting = false;//子弹是否正在爆裂
@@ -115,11 +116,22 @@ public:
         this->speed = speed;
         this->damage = damage;
         this->range = range;
-        this->bumpbox.x = x;
-        this->bumpbox.y = y;
-        this->bumpbox.w = 30;
-        this->bumpbox.h = 30;
         this->direction = direction;
+        this->isAlive = true;
+        this->isBursting = false;
+        this->burstStartTime = 0;
+
+        // 初始化贴图矩形
+        this->spriteRect.w = 30; // 贴图宽度
+        this->spriteRect.h = 30; // 贴图高度
+        this->spriteRect.x = x;
+        this->spriteRect.y = y;
+
+        // 初始化碰撞箱的位置和大小
+        this->bumpbox.w = 10; // 碰撞箱宽度
+        this->bumpbox.h = 10; // 碰撞箱高度
+        this->bumpbox.x = x + (this->spriteRect.w - this->bumpbox.w) / 2;
+        this->bumpbox.y = y + (this->spriteRect.h - this->bumpbox.h) / 2;
     }
 
     //————子弹行为函数
@@ -127,13 +139,24 @@ public:
     //子弹更新位置
     void updatePosition() {
         if (!isBursting) {
-            bumpbox.x += speed * cos(direction.radian);
-            bumpbox.y += speed * sin(direction.radian);
-            x = bumpbox.x;
-            y = bumpbox.y;
+            double deltaX = speed * cos(direction.radian);
+            double deltaY = speed * sin(direction.radian);
+
+            // 更新位置
+            x += deltaX;
+            y += deltaY;
+
+            // 更新贴图的位置
+            spriteRect.x = static_cast<int>(x);
+            spriteRect.y = static_cast<int>(y);
+
+            // 更新碰撞箱的位置
+            bumpbox.x = static_cast<int>(x) + (spriteRect.w - bumpbox.w) / 2;
+            bumpbox.y = static_cast<int>(y) + (spriteRect.h - bumpbox.h) / 2;
+
             range -= speed;
             if (range <= 0) {
-                burst(); // 当射程耗尽，触发爆裂
+                burst();
             }
         }
     }
@@ -261,6 +284,7 @@ public:
     bool isReadyToAttack; // 是否准备好再次攻击
     bool hasShot; // 是否已经发射过子弹
     SDL_Rect bumpbox;//碰撞箱
+	SDL_Rect spriteRect;//贴图矩形
     FLY(int x, int y) {
         id = 1;
         strcpy_s(name, "FLY");
@@ -272,18 +296,25 @@ public:
         damage = 1;
         lastShootTime = 0;
         shootInterval = 2000; // 设置攻击间隔为2000毫秒（2秒）
-        lastMoveTime = SDL_GetTicks(); // 初始化为当前时间
-        moveInterval = 16 + rand() % 16; // 设置移动间隔为16-32毫秒之间的随机值
+        lastMoveTime = SDL_GetTicks();
+        moveInterval = 16 + rand() % 16;
         currentFrame = 0;
         lastFrameTime = SDL_GetTicks();
         attackStartTime = 0;
         isReadyToAttack = true;
         hasShot = false;
-        // 初始化碰撞箱
-        this->bumpbox.w = 96; // 图像宽度
-        this->bumpbox.h = 96; // 图像高度
-        this->bumpbox.x = x + (96 - 40) / 2;
-        this->bumpbox.y = y + (96 - 40) / 2;
+
+        // 初始化贴图矩形
+        this->spriteRect.w = 96; // 贴图宽度
+        this->spriteRect.h = 96; // 贴图高度
+        this->spriteRect.x = x;
+        this->spriteRect.y = y;
+
+        // 初始化碰撞箱的位置和大小，可以根据需要调整
+        this->bumpbox.w = 40; // 碰撞箱宽度
+        this->bumpbox.h = 40; // 碰撞箱高度
+        this->bumpbox.x = x + (this->spriteRect.w - this->bumpbox.w) / 2;
+        this->bumpbox.y = y + (this->spriteRect.h - this->bumpbox.h) / 2;
     }
     FLY* createFly(int x, int y) {
         FLY* fly = new FLY(x, y);
@@ -319,9 +350,13 @@ public:
         detectState(player); // 检测玩家是否在攻击范围内
         updateMoveType(player); // 更新移动状态
         MONSTER::move(player); // 调用基类的移动函数
+        // 更新贴图的位置
+        this->spriteRect.x = static_cast<int>(this->x);
+        this->spriteRect.y = static_cast<int>(this->y);
+
         // 更新碰撞箱的位置
-        this->bumpbox.x = static_cast<int>(this->x) + 8;
-        this->bumpbox.y = static_cast<int>(this->y) + 8;
+        this->bumpbox.x = static_cast<int>(this->x) + (this->spriteRect.w - this->bumpbox.w) / 2;
+        this->bumpbox.y = static_cast<int>(this->y) + (this->spriteRect.h - this->bumpbox.h) / 2;
     }
 
 };
@@ -635,22 +670,22 @@ void processShooting(bool keyStates[8], Direction& head_direction, SDL_Rect& hea
 // 更新角色位置
 void updatePlayerPosition(SDL_Rect& headrect, SDL_Rect& bodyrect, const bool keyStates[4], int window_width,
     int window_height, int& bodyDirection, PLAYER& isaac) {
-    if (keyStates[0] && headrect.y > 0) {
+    if (keyStates[0] && headrect.y > 50) {
         headrect.y -= 2.5 * isaac.speed;
         bodyrect.y -= 2.5 * isaac.speed;
         bodyDirection = 1; // 上
     }
-    else if (keyStates[1] && headrect.x > 0) {
+    else if (keyStates[1] && headrect.x > 120) {
         headrect.x -= 2.5 * isaac.speed;
         bodyrect.x -= 2.5 * isaac.speed;
         bodyDirection = 3; // 左
     }
-    else if (keyStates[2] && bodyrect.y < window_height - bodyrect.h) {
+    else if (keyStates[2] && bodyrect.y < window_height - bodyrect.h - 120) {
         headrect.y += 2.5 * isaac.speed;
         bodyrect.y += 2.5 * isaac.speed;
         bodyDirection = 2; // 下
     }
-    else if (keyStates[3] && headrect.x < window_width - headrect.w) {
+    else if (keyStates[3] && headrect.x < window_width - headrect.w - 130) {
         headrect.x += 2.5 * isaac.speed;
         bodyrect.x += 2.5 * isaac.speed;
         bodyDirection = 4; // 右
@@ -788,13 +823,14 @@ void renderBullets(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Te
             Uint32 currentTime = SDL_GetTicks();
             Uint32 elapsedTime = currentTime - bullet.burstStartTime;
             int frame = (elapsedTime / 100) % BurstMotions.size(); // 每帧100ms
-            SDL_RenderCopy(renderer, BurstMotions[frame], NULL, &bullet.bumpbox);
+            SDL_RenderCopy(renderer, BurstMotions[frame], NULL, &bullet.spriteRect);
         }
         else {
-            SDL_RenderCopy(renderer, bulletTexture, NULL, &bullet.bumpbox);
+            SDL_RenderCopy(renderer, bulletTexture, NULL, &bullet.spriteRect);
         }
     }
 }
+
 // 人物血量渲染
 void renderPlayerHealth(SDL_Renderer* renderer, const PLAYER& player, SDL_Texture* full_heart, SDL_Texture* half_heart, SDL_Texture* empty_heart) {
     int maxHearts = 6; // 假设最大心数为6
@@ -879,7 +915,11 @@ void renderScene(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Text
             renderBullets(renderer, { bullet }, bulletTexture, BurstMotions);
         }
     }
+    
 
+
+    //—————————————碰撞箱绘制
+	/*
     // 设置绘制颜色为红色
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
     // 绘制角色的碰撞箱
@@ -888,7 +928,7 @@ void renderScene(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Text
     for (const auto& fly : Flies) {
         SDL_RenderDrawRect(renderer, &fly.bumpbox);
     }
-
+    */
 
 
 
@@ -904,10 +944,10 @@ void renderScene(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Text
     // 渲染苍蝇怪
     for (auto& fly : flies) {
         if (fly.state == ATTACK) {
-            flyAttackMotion(renderer, FlyMotions, fly.bumpbox, const_cast<FLY&>(fly), player);
+            flyAttackMotion(renderer, FlyMotions, fly.spriteRect, fly, player);
         }
         else {
-            flyIdleMotion(renderer, FlyMotions, fly.bumpbox, const_cast<FLY&>(fly));
+            flyIdleMotion(renderer, FlyMotions, fly.spriteRect, fly);
         }
     }
     // 渲染怪物子弹
@@ -920,7 +960,6 @@ void renderScene(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Text
 
 
 
-/* —————————————————————————————— */
 
 
 
@@ -1218,10 +1257,14 @@ int main(int, char**) {
 
     //随机生成苍蝇怪
     srand(time(NULL));
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 1; i++) {
         FLY fly(rand() % window_width, rand() % window_height);
         Flies.push_back(fly);
     }
+
+
+
+
 
     Uint32 switch_start_time = 0; // 切换房间开始时间
     bool switching_room = false; // 是否正在切换房间
@@ -1259,8 +1302,12 @@ int main(int, char**) {
         // 更新角色位置
         updatePlayerPosition(headrect, bodyrect, keyStates, window_width, window_height, bodyDirection, isaac);
 
-        // 检测 bodyrect 是否进入指定的矩形区域
-        if (bodyrect.x + bodyrect.w > 610 && bodyrect.x < 755 && bodyrect.y + bodyrect.h > 55 && bodyrect.y < 130) {
+
+        // 检测 bodyrect 是否进入指定的矩形区域, 并且检测怪物是否清理完毕
+        // 添加调试信息
+        if ((headrect.x >= window_width / 2 - 50) && (headrect.x+headrect.w <= window_width/2 + 50 ) &&
+            (headrect.y >= 0) && (headrect.y <= 50) && Flies.empty()) {
+            //SDL_Log("Player entered the target area.");
             if (!switching_room) {
                 switchRoom(renderer, black, headrect, bodyrect);
                 switch_start_time = SDL_GetTicks();
@@ -1268,7 +1315,7 @@ int main(int, char**) {
                 black_screen = true;
             }
         }
-
+           
         // 检查是否达到延迟时间
         if (switching_room && SDL_GetTicks() - switch_start_time >= 1000) { // 延长到 5 秒
             switchRoom(renderer, basement, headrect, bodyrect);
@@ -1299,6 +1346,11 @@ int main(int, char**) {
         // 控制帧率
         SDL_Delay(16); // 约 60 FPS
     }
+
+
+
+
+
     // 清理资源
     if (ttfFont) {
         TTF_CloseFont(ttfFont);
