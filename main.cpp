@@ -1033,6 +1033,7 @@ void switchRoom(SDL_Renderer* renderer, SDL_Texture* newRoomTexture, SDL_Rect& h
     FlyBullets.clear();
     // 清除障碍物
     Obstacles.clear();
+    Hearts.clear();
 }
 // 生成障碍物
 void generateObstacles(int numObstacles, SDL_Texture* obstacleTexture, const PLAYER& player) {
