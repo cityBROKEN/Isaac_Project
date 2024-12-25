@@ -873,7 +873,7 @@ void switchRoom(SDL_Renderer* renderer, SDL_Texture* newRoomTexture, SDL_Rect& h
     Obstacles.clear();
 }
 // 生成障碍物
-void generateObstacles(int numObstacles, SDL_Texture* obstacleTexture) {
+void generateObstacles(int numObstacles, SDL_Texture* obstacleTexture, const PLAYER& player) {
     uniform_int_distribution<> Xdis(150, window_width - 250);
     uniform_int_distribution<> Ydis(120, window_height - 170);
     // 可以根据纹理的实际尺寸设置固定的宽高
@@ -882,8 +882,14 @@ void generateObstacles(int numObstacles, SDL_Texture* obstacleTexture) {
     for (int i = 0; i < numObstacles; ++i) {
         int x = Xdis(gen);
         int y = Ydis(gen);
+
+        // 确保生成的障碍物不在玩家初始位置附近
+        while (abs(x - player.x) < 200 && abs(y - player.y) < 200) {
+            x = Xdis(gen);
+            y = Ydis(gen);
+        }
+
         Obstacles.push_back(OBSTACLE(x, y, obstacleWidth, obstacleHeight, obstacleTexture));
-        //SDL_Log("Obstacle generated at position (%d, %d)", x, y); // 输出障碍物位置
     }
 }
 
@@ -1871,7 +1877,7 @@ int main(int, char**) {
             switching_room = false;
             black_screen = false;
 			int obstacle_number = randomNumberOneToSeven(); // 随机生成1-7个障碍物
-            generateObstacles(obstacle_number, obstacleTexture); // 生成1个障碍物
+            generateObstacles(obstacle_number, obstacleTexture,isaac); // 生成1个障碍物
             // 随机生成新的怪物
             generateMonsters(room_number, isaac);
 			room_number++;
