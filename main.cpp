@@ -1004,7 +1004,7 @@ void generateMonsters(int room_number, PLAYER& player) {
             FLY fly(x, y);
             Flies.push_back(fly);
         }
-        else if (monsterType < 0.3) {
+        else if (monsterType < 0.9) {
             // 30%的概率生成大苍蝇怪
             BIGFLY bigfly(x, y);
             BigFlies.push_back(bigfly);
@@ -1670,7 +1670,8 @@ int main(int, char**) {
         window_width, window_height, SDL_WINDOW_SHOWN);
 
     // 创建渲染
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+
 
     // 加载字体
     // // 如果需要加载 ftn 字体，可以按以下方式：
@@ -1693,6 +1694,8 @@ int main(int, char**) {
 	modifyVolume();//调整音量
 
     //播放开场视频和音频
+
+
     playOpeningVideoSound();
     if (opening_video_sound == NULL) {
         SDL_Log("Failed to load beat music! SDL_mixer Error: %s", Mix_GetError());
