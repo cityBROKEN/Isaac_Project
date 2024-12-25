@@ -147,12 +147,12 @@ void playMonsterDeath() { monster_death = Mix_LoadWAV("ISAAC/Sounds/death burst 
 void playMonsterSwarm() { monster_swarm = Mix_LoadWAV("ISAAC/Sounds/insect swarm.wav"); }
 
 void modifyVolume() {
-    Mix_VolumeMusic(10);
-    Mix_VolumeChunk(shoot_sound1,128);
-	Mix_VolumeChunk(shoot_sound2, 128);
+    Mix_VolumeMusic(30);
+    Mix_VolumeChunk(shoot_sound1,100);
+	Mix_VolumeChunk(shoot_sound2, 100);
 	Mix_VolumeChunk(hurt_grunt, 128);
-	Mix_VolumeChunk(death_grunt, 128);
+	Mix_VolumeChunk(death_grunt, 80);
 	Mix_VolumeChunk(clear_music, 128);
-	Mix_VolumeChunk(monster_death, 128);
+	Mix_VolumeChunk(monster_death, 100);
 	Mix_VolumeChunk(monster_swarm, 0);
 }

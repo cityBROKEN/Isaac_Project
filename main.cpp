@@ -46,7 +46,8 @@ mt19937 gen(rd());
 //窗口大小
 const int window_width = 1368;
 const int window_height = 768;
-
+//游戏状态
+bool isPause = false;
 
 /* —————————— 障碍物 —————————— */
 class OBSTACLE {
@@ -921,6 +922,8 @@ void processInput(SDL_Event& event, bool& isquit, bool keyStates[8]) {
             case SDLK_LEFT: keyStates[5] = true; break;
             case SDLK_DOWN: keyStates[6] = true; break;
             case SDLK_RIGHT: keyStates[7] = true; break;
+				// 暂停按键
+            case SDLK_ESCAPE: isPause = true; break;
             }
         }
         if (event.type == SDL_KEYUP) {
@@ -1334,25 +1337,25 @@ void updateMonsters(vector<FLY>& flies, vector<BIGFLY>& bigFlies, PLAYER& player
 
 
 // 结束界面函数
-void renderGameOverScreen(SDL_Renderer* renderer, TTF_Font* font, int window_width, int window_height) {
-    // 设置背景颜色为黑色
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
+void renderGameOverScreen(SDL_Renderer* renderer, TTF_Font* font, int window_width, int window_height, SDL_Texture* endmenu) {
+    //设置背景为endmenu
+	SDL_RenderClear(renderer);
+	SDL_RenderCopy(renderer, endmenu, NULL, NULL);
 
     // 渲染 "Game Over" 文字
-    SDL_Color whiteColor = { 255, 255, 255, 255 };
-    SDL_Surface* gameOverSurface = TTF_RenderText_Solid(font, "Game Over", whiteColor);
+	SDL_Color blackColor = { 0, 0, 0 };
+    SDL_Surface* gameOverSurface = TTF_RenderText_Solid(font, "Game Over", blackColor);
     SDL_Texture* gameOverTexture = SDL_CreateTextureFromSurface(renderer, gameOverSurface);
     SDL_Rect gameOverRect;
-    gameOverRect.w = gameOverSurface->w;
-    gameOverRect.h = gameOverSurface->h;
+    gameOverRect.w = gameOverSurface->w*4;
+    gameOverRect.h = gameOverSurface->h*4;
     gameOverRect.x = (window_width - gameOverRect.w) / 2;
-    gameOverRect.y = (window_height - gameOverRect.h) / 2 - 50;
+    gameOverRect.y = (window_height - gameOverRect.h) / 2 - 100;
     SDL_RenderCopy(renderer, gameOverTexture, NULL, &gameOverRect);
 
     // 渲染 "The number of rooms you passed: " 文字
     string roomPassed = "The number of rooms you passed: " + to_string(room_number - 1);
-    SDL_Surface* roomPassedSurface = TTF_RenderText_Solid(font, roomPassed.c_str(), whiteColor);
+    SDL_Surface* roomPassedSurface = TTF_RenderText_Solid(font, roomPassed.c_str(), blackColor);
     SDL_Texture* roomPassedTexture = SDL_CreateTextureFromSurface(renderer, roomPassedSurface);
     SDL_Rect roomPassedRect;
     roomPassedRect.w = roomPassedSurface->w;
@@ -1362,7 +1365,7 @@ void renderGameOverScreen(SDL_Renderer* renderer, TTF_Font* font, int window_wid
     SDL_RenderCopy(renderer, roomPassedTexture, NULL, &roomPassedRect);
 
     // 渲染 "Press Enter to Restart or Esc to Exit" 文字
-    SDL_Surface* exitSurface = TTF_RenderText_Solid(font, "Press Enter to Restart or Esc to Exit", whiteColor);
+    SDL_Surface* exitSurface = TTF_RenderText_Solid(font, "Press Enter to Restart or Esc to Exit", blackColor);
     SDL_Texture* exitTexture = SDL_CreateTextureFromSurface(renderer, exitSurface);
     SDL_Rect exitRect;
     exitRect.w = exitSurface->w;
@@ -1380,9 +1383,13 @@ void renderGameOverScreen(SDL_Renderer* renderer, TTF_Font* font, int window_wid
     SDL_FreeSurface(exitSurface);
     SDL_DestroyTexture(exitTexture);
 }
-
-
-
+//暂停界面函数
+void renderPauseScreen(SDL_Renderer* renderer, TTF_Font* font, int window_width, int window_height, SDL_Texture* pausemenu) {
+	SDL_RenderClear(renderer);
+	SDL_RenderCopy(renderer, pausemenu, NULL, NULL);
+	// 更新屏幕
+	SDL_RenderPresent(renderer);
+}
 
 
 
@@ -1545,6 +1552,8 @@ int main(int, char**) {
     SDL_Texture* half_heart = IMG_LoadTexture(renderer, "ISAAC/Characters/half_heart.png");
     SDL_Texture* empty_heart = IMG_LoadTexture(renderer, "ISAAC/Characters/empty_heart.png");
     SDL_Texture* obstacleTexture = IMG_LoadTexture(renderer, "ISAAC/Obstacle/stone.png");
+	SDL_Texture* end_menu = IMG_LoadTexture(renderer, "ISAAC/Backgrounds/endmenu.png");
+	SDL_Texture* pause_menu = IMG_LoadTexture(renderer, "ISAAC/Backgrounds/pausescreen.png");
 
     /* 初始化动画纹理数组 */
     vector<SDL_Texture*> BackMotions;
@@ -1725,24 +1734,59 @@ int main(int, char**) {
     PLAYER isaac(bodyrect.x, bodyrect.y, headrect.w, headrect.h, 12, 2, 3.5, 3, 7, 500); // 创建角色
 
 
-    /*结束界面*/
+  
 
 
-
+  
 
 
     Uint32 switch_start_time = 0; // 切换房间开始时间
     bool switching_room = false; // 是否正在切换房间
     bool black_screen = false; // 是否处于黑屏状态
+	int isClear = 1;// 是否清理完怪物
 
     while (!isquit) {
 
+		if (isPause) {
+			// 暂停音乐
+			Mix_PauseMusic();
+			// 显示暂停界面
+			renderPauseScreen(renderer, ttfFont, window_width, window_height,pause_menu);
+			while (isPause) {
+				while (SDL_PollEvent(&event)) {
+					if (event.type == SDL_QUIT) {
+						isquit = true;
+                        isPause = false;
+					}
+					if (event.type == SDL_KEYDOWN) {
+						if (event.key.keysym.sym == SDLK_ESCAPE) {
+							// 继续游戏
+							Mix_ResumeMusic();
+                            isPause = false;
+						}
+					}
+				}
+			}
+		}
+
+
+
+
+
+
+
+
+
+        /*结束界面*/
         if (isaac.HP <= 0) {
 			// 播放死亡音效
 			playDeathGrunt();
             Mix_PlayChannel(-1, death_grunt, 0);
+            // 播放死亡界面音乐
+            playEndingSound();
+            Mix_PlayMusic(ending_sound, -1);
             // 显示结束界面
-            renderGameOverScreen(renderer, ttfFont, window_width, window_height);
+            renderGameOverScreen(renderer, ttfFont, window_width, window_height,end_menu);
             // 等待用户按下回车键重新开始或按下ESC键退出游戏
             bool gameOver = true;
             while (gameOver) {
@@ -1753,6 +1797,8 @@ int main(int, char**) {
                     }
                     if (event.type == SDL_KEYDOWN) {
                         if (event.key.keysym.sym == SDLK_RETURN) {
+							playMainMusic();
+							Mix_PlayMusic(main_music, -1);
                             // 重新开始游戏
                             isaac.HP = 12; // 重置角色血量
                             isaac.x = window_width / 2; // 重置角色位置
@@ -1763,7 +1809,10 @@ int main(int, char**) {
                             bodyrect.y = window_height / 2 - bodyrect.h / 2 + 12;
                             Bullets.clear(); // 清空子弹
                             FlyBullets.clear(); // 清空怪物子弹
-                            Flies.clear(); // 清空怪物
+                            Flies.clear(); // 清空苍蝇怪
+							BigFlies.clear(); // 清空大苍蝇怪
+                            room_number = 0; // 重置房间号
+							isClear = 1; // 重置是否清理完怪物
                             generateMonsters(room_number, isaac); // 重新生成怪物
                             gameOver = false;
                         }
@@ -1843,6 +1892,22 @@ int main(int, char**) {
         for (const auto& obstacle : Obstacles) {
             SDL_RenderCopy(renderer, obstacle.texture, NULL, &obstacle.rect);
         }
+
+
+
+
+
+		// 检查是否清理完怪物，若是则播放胜利音乐
+		if (Flies.empty() && BigFlies.empty()) {
+            if (isClear == room_number) {
+                playClearMusic();
+                Mix_PlayChannel(-1, clear_music, 0);
+				isClear++;
+            }
+		}
+
+
+
 
 
         /* —————————————— 渲染画面 ——————————————*/
