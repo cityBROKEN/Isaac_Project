@@ -11,7 +11,7 @@
 #include <cstdlib>
 #include <random>
 #include <map>
-
+#include <algorithm>
 #include < fstream >
 #include "font.h"
 #include "media.h"
@@ -43,7 +43,6 @@ double distance(int x1, int y1, int x2, int y2) {
 //初始化随机数
 random_device rd;
 mt19937 gen(rd());
-
 //窗口大小
 const int window_width = 1368;
 const int window_height = 768;
@@ -92,6 +91,7 @@ public:
     bool isInvincible;          // 是否处于无敌状态
     Uint32 invincibleStartTime; // 无敌开始时间
     Uint32 invincibleDuration;  // 无敌持续时间（毫秒）
+	bool isAlive = true;//角色是否存活
     PLAYER(int x, int y, int w, int h, double HP, double speed, double damage, double tear, double shootspeed, double range) {
         this->x = x;
         this->y = y;
@@ -109,46 +109,10 @@ public:
         this->isInvincible = false;
         this->invincibleStartTime = 0;
         this->invincibleDuration = 1000; // 无敌持续时间为1秒，可根据需要调整
+		this->isAlive = true;
     }
 };
 
-
-// 结束界面函数
-void renderGameOverScreen(SDL_Renderer* renderer, TTF_Font* font, int window_width, int window_height) {
-    // 设置背景颜色为黑色
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
-
-    // 渲染 "Game Over" 文字
-    SDL_Color whiteColor = { 255, 255, 255, 255 };
-    SDL_Surface* gameOverSurface = TTF_RenderText_Solid(font, "Game Over", whiteColor);
-    SDL_Texture* gameOverTexture = SDL_CreateTextureFromSurface(renderer, gameOverSurface);
-    SDL_Rect gameOverRect;
-    gameOverRect.w = gameOverSurface->w;
-    gameOverRect.h = gameOverSurface->h;
-    gameOverRect.x = (window_width - gameOverRect.w) / 2;
-    gameOverRect.y = (window_height - gameOverRect.h) / 2 - 50;
-    SDL_RenderCopy(renderer, gameOverTexture, NULL, &gameOverRect);
-
-    // 渲染 "Press Enter to Restart or Esc to Exit" 文字
-    SDL_Surface* exitSurface = TTF_RenderText_Solid(font, "Press Enter to Restart or Esc to Exit", whiteColor);
-    SDL_Texture* exitTexture = SDL_CreateTextureFromSurface(renderer, exitSurface);
-    SDL_Rect exitRect;
-    exitRect.w = exitSurface->w;
-    exitRect.h = exitSurface->h;
-    exitRect.x = (window_width - exitRect.w) / 2;
-    exitRect.y = (window_height - exitRect.h) / 2 + 50;
-    SDL_RenderCopy(renderer, exitTexture, NULL, &exitRect);
-
-    // 更新屏幕
-    SDL_RenderPresent(renderer);
-
-    // 释放资源
-    SDL_FreeSurface(gameOverSurface);
-    SDL_DestroyTexture(gameOverTexture);
-    SDL_FreeSurface(exitSurface);
-    SDL_DestroyTexture(exitTexture);
-}
 
 
 /* —————————— 子弹 —————————— */
@@ -167,6 +131,7 @@ public:
     bool isAlive = true;//子弹是否存活
     bool isBursting = false;//子弹是否正在爆裂
     Uint32 burstStartTime = 0;//爆裂动画开始时间
+
     BULLET(int x, int y, double speed, double damage, double range, DIRECTION direction) {
         this->x = x;
         this->y = y;
@@ -238,7 +203,19 @@ public:
     void burst() {
         isBursting = true;
         burstStartTime = SDL_GetTicks();
-    }
+        //生成随机数1或2
+        uniform_int_distribution<int> disw(1, 2); // 定义随机数范围为[1, 7]
+        int random_number = disw(gen); // 生成随机数
+		if (random_number == 1) {
+            playShootSound1();
+            Mix_PlayChannel(-1, shoot_sound1, 0);
+
+        }
+		else {
+            playShootSound2();
+            Mix_PlayChannel(-1, shoot_sound2, 0);
+        }
+	}
 
     //子弹死亡
     void die() {
@@ -251,7 +228,7 @@ vector<BULLET> FlyBullets;//苍蝇怪子弹容器
 
 
 /* —————————— 随机数 —————————— */
-int randomNumberOneToTen() {
+int randomNumberOneToSeven() {
     std::random_device rd;  // 创建随机数种子
     std::mt19937 gen(rd()); // 生成随机数引擎，使用梅森旋转算法
     std::uniform_int_distribution<> dis(1, 7); // 定义随机数范围为[1, 7]
@@ -286,7 +263,11 @@ public:
     Uint32 lastMoveTime;  // 上次移动的时间
     Uint32 moveInterval;  // 移动间隔
     bool isAlive = true;//怪物是否存活
-    
+	bool isDying = false; // 是否正在死亡
+    Uint32 currentFrame;     // 当前动画帧
+    Uint32 lastFrameTime; // 上次动画帧时间
+    Uint32 deathStartTime = 0;      // 记录死亡动画开始时间
+    Uint32 deathDuration = 550;     // 死亡动画持续时间（毫秒）
     // 怪物行为函数
 	// 怪物移动
     void move(const PLAYER& player) {
@@ -329,13 +310,18 @@ public:
             }
         }
         break;
+        case 4:
+			//45度直线移动，速度不变，碰到边界反弹
+			vx = speed;
+			vy = speed;
+			break;
         }
 
         // 更新位置
         x += vx;
         y += vy;
 
-        // 应用摩擦力，逐渐减速（可选）
+        // 应用摩擦力，逐渐减速
         vx *= 0.9;
         vy *= 0.9;
 
@@ -398,22 +384,30 @@ public:
         spriteRect.x = static_cast<int>(x);
         spriteRect.y = static_cast<int>(y);
     }
-    void die() {//怪物死亡
-        isAlive = false;
+    void die() {
+        if (!isDying) {
+            isDying = true;
+            deathStartTime = SDL_GetTicks(); // 记录死亡动画开始时间
+            vx = 0; // 停止移动
+            vy = 0;
+			// 播放死亡音效
+            playMonsterDeath();
+			Mix_PlayChannel(-1, monster_death, 0);
+        }
     }
+
 };
+
 //苍蝇怪
 class FLY : public MONSTER {
 public:
     friend class PLAYER;
     Uint32 lastShootTime; // 上次发射子弹的时间
     Uint32 shootInterval; // 攻击间隔
-    int currentFrame;     // 当前动画帧
-    Uint32 lastFrameTime; // 上次动画帧时间
     Uint32 attackStartTime; // 攻击开始时间
     bool isReadyToAttack; // 是否准备好再次攻击
-    bool hasShot; // 是否已经发射过子弹
-    SDL_Rect bumpbox;//碰撞箱
+    bool hasShot; // 是否已经发射过子弹    
+
 	
     FLY(int x, int y) {
         id = 1;
@@ -435,6 +429,11 @@ public:
         attackStartTime = 0;
         isReadyToAttack = true;
         hasShot = false;
+		state = IDLE;
+		isAlive = true;
+		isDying = false;
+		deathStartTime = 0;
+		deathDuration = 550;
 
         // 初始化贴图矩形
         this->spriteRect.w = 96; // 贴图宽度
@@ -485,10 +484,21 @@ public:
         // 更新贴图的位置
         this->spriteRect.x = static_cast<int>(this->x);
         this->spriteRect.y = static_cast<int>(this->y);
-
         // 更新碰撞箱的位置
         this->bumpbox.x = static_cast<int>(this->x) + (this->spriteRect.w - this->bumpbox.w) / 2;
         this->bumpbox.y = static_cast<int>(this->y) + (this->spriteRect.h - this->bumpbox.h) / 2;
+    }
+
+    void updateDeathAnimation() {
+        // 根据死亡时间计算当前帧（假设死亡动画有 11 帧，每帧持续 deathDuration / 11 毫秒）
+        Uint32 currentTime = SDL_GetTicks();
+        Uint32 elapsed = currentTime - deathStartTime;
+        int totalFrames = 11;
+        int frameDuration = deathDuration / totalFrames;
+        currentFrame = elapsed / frameDuration;
+        if (currentFrame >= totalFrames) {
+            currentFrame = totalFrames - 1;
+        }
     }
 
 };
@@ -496,28 +506,103 @@ public:
 vector<FLY> Flies;
 FLY fly_standard(100, 100);
 
-//蜘蛛怪
-class SPIDER :public MONSTER {
+//大苍蝇怪
+class BIGFLY : public MONSTER {
 public:
-    SPIDER() {
+    friend class PLAYER;
+    BIGFLY(int x, int y) {
         id = 2;
-        strcpy_s(name, "SPIDER");
-        x = 0;
-        y = 0;
+        strcpy_s(name, "BIGFLY");
+        this->x = x;
+        this->y = y;
         HP = 20;
-        move_type = 2;
-        speed = 3;
+        move_type = 4;
+        speed = 4;
+        vx = 0;
+        vy = 0;
         damage = 2;
+        lastMoveTime = SDL_GetTicks();
+        moveInterval = 16;
+        currentFrame = 0;
+        lastFrameTime = SDL_GetTicks();
+        state = IDLE;
+        isAlive = true;
+        isDying = false;
+        deathStartTime = 0;
+        deathDuration = 550;
+        // 初始化贴图矩形
+        this->spriteRect.w = 90; // 贴图宽度
+        this->spriteRect.h = 90; // 贴图高度
+        this->spriteRect.x = x;
+        this->spriteRect.y = y;
+        // 初始化碰撞箱的位置和大小，可以根据需要调整
+        this->bumpbox.w = 50; // 碰撞箱宽度
+        this->bumpbox.h = 50; // 碰撞箱高度
+        this->bumpbox.x = x + (this->spriteRect.w - this->bumpbox.w) / 2;
+        this->bumpbox.y = y + (this->spriteRect.h - this->bumpbox.h) / 2;
+        // 45度直线移动，速度不变，碰到边界反弹
+        vx = speed * cos(PI / 4);
+        vy = speed * sin(PI / 4);
     }
-    SPIDER* createSpider(int x, int y) {
-        SPIDER* spider = new SPIDER();
-        spider->x = x;
-        spider->y = y;
-        return spider;
-    }
-};
-vector<SPIDER> Spiders;
+	BIGFLY* createBigFly(int x, int y) {
+		BIGFLY* bigfly = new BIGFLY(x, y);
+		return bigfly;
+	}
+    void move() {
 
+		// 更新位置
+        x += vx;
+        y += vy;
+
+        // 边界检测，防止怪物移出屏幕，碰到边界反弹
+		if (x < 120 || x > window_width - bumpbox.w - 120) {//碰到左右边界
+			vx = -vx;
+        }
+        if (y < 100 || y > window_height - bumpbox.h - 100) {
+			vy = -vy;
+        }
+
+        // 更新碰撞箱和贴图的位置
+        bumpbox.x = static_cast<int>(x) + (spriteRect.w - bumpbox.w) / 2;
+        bumpbox.y = static_cast<int>(y) + (spriteRect.h - bumpbox.h) / 2;
+        spriteRect.x = static_cast<int>(x);
+        spriteRect.y = static_cast<int>(y);
+    }
+
+    void die() {
+        if (!isDying) {
+            isDying = true;
+            deathStartTime = SDL_GetTicks(); // 记录死亡动画开始时间
+            vx = 0; // 停止移动
+            vy = 0;
+            // 死亡后向六个方向发射子弹
+            double angle = 0;
+            for (int i = 0; i < 6; i++) {
+                // 修改这里，将子弹添加到 FlyBullets 而不是 Bullets
+                FlyBullets.push_back(BULLET(x + 45, y + 45, 5, damage, 300, { angle }));
+                angle += PI / 3;
+            }
+            // 播放死亡音效
+            playMonsterDeath();
+            Mix_PlayChannel(-1, monster_death, 0);
+        }
+    }
+
+	void updateDeathAnimation() {
+		// 根据死亡时间计算当前帧（假设死亡动画有 11 帧，每帧持续 deathDuration / 11 毫秒）
+		Uint32 currentTime = SDL_GetTicks();
+		Uint32 elapsed = currentTime - deathStartTime;
+		int totalFrames = 11;
+		int frameDuration = deathDuration / totalFrames;
+		currentFrame = elapsed / frameDuration;
+		if (currentFrame >= totalFrames) {
+			currentFrame = totalFrames - 1;
+		}
+	}
+};
+
+vector<BIGFLY> BigFlies;
+BIGFLY bigfly_standard(100, 100);
 
 
 
@@ -699,16 +784,32 @@ void flyAttackMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotions, v
     }
 }
 // 苍蝇怪死亡动画
-void flyDeadMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyDeadMotions, SDL_Rect& flyrect) {
-    static int currentFrame = 0;
-    static Uint32 lastFrameTime = 0;
-    Uint32 currentTime = SDL_GetTicks();
-    // 每200ms切换帧，按下按键时重置
-    if (currentTime - lastFrameTime >= 200 || currentFrame == 0) {
-        currentFrame = (currentFrame + 1) % FlyDeadMotions.size();
-        lastFrameTime = currentTime;
+void flyDeadMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyDeadMotions, SDL_Rect& flyrect, FLY& fly) {
+    // 确保帧数不超过动画总帧数
+    int totalFrames = FlyDeadMotions.size();
+    if (fly.currentFrame >= totalFrames) {
+        fly.currentFrame = totalFrames - 1;
     }
-    SDL_RenderCopy(renderer, FlyDeadMotions[currentFrame], NULL, &flyrect);
+    SDL_RenderCopy(renderer, FlyDeadMotions[fly.currentFrame], NULL, &flyrect);
+}
+// 大苍蝇怪常态动画
+void bigFlyMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BigFlyMotions, SDL_Rect& bigflyrect, BIGFLY& bigfly) {
+	Uint32 currentTime = SDL_GetTicks();
+	// 每80ms切换帧
+	if (currentTime - bigfly.lastFrameTime >= 80) {
+		bigfly.currentFrame = (bigfly.currentFrame + 1) % 2;
+		bigfly.lastFrameTime = currentTime;
+	}
+	SDL_RenderCopy(renderer, BigFlyMotions[bigfly.currentFrame], NULL, &bigflyrect);
+}
+// 大苍蝇怪死亡动画
+void bigFlyDeadMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BigFlyDeadMotions, SDL_Rect& bigflyrect, BIGFLY& bigfly) {
+	// 确保帧数不超过动画总帧数
+	int totalFrames = BigFlyDeadMotions.size();
+	if (bigfly.currentFrame >= totalFrames) {
+		bigfly.currentFrame = totalFrames - 1;
+	}
+	SDL_RenderCopy(renderer, BigFlyDeadMotions[bigfly.currentFrame], NULL, &bigflyrect);
 }
 
 /* —————————————————————————————— */
@@ -723,26 +824,36 @@ void flyDeadMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyDeadMotions,
 
 
 int room_number = 1;
-mt19937 Xelem(rd()); // 使用 Mersenne Twister 算法
-mt19937 Yelem(rd()); // 使用 Mersenne Twister 算法
+// 随机刷怪函数
+void generateMonsters(int room_number, PLAYER& player) {
+    uniform_int_distribution<int> Xdis(150, window_width - 150);
+    uniform_int_distribution<int> Ydis(120, window_height - 120);
+    uniform_real_distribution<double> monsterTypeDis(0.0, 1.0); // 用于随机决定怪物类型
 
-//随机刷怪函数
-void generateMonster(int room_number ,PLAYER player, FLY fly) {
-    uniform_int_distribution<> Xdis(150, window_width - fly.bumpbox.w - 150);
-    uniform_int_distribution<> Ydis(120, window_height - fly.bumpbox.h - 120);
-	for (int i = 0; i < room_number; i++) {
-		int x = Xdis(Xelem);
-		int y = Ydis(Yelem);
-		//检测x、y是否在玩家碰撞箱内
-		while (x + fly.bumpbox.w + 200 >= player.bumpbox.x && x - 200 <= player.bumpbox.x + player.bumpbox.w &&
-            y - 200 <= player.bumpbox.y + player.bumpbox.h && y + fly.bumpbox.h + 200 >= player.bumpbox.y) {
-			x = Xdis(Xelem);
-			y = Ydis(Yelem);
-		}
-		FLY fly(x, y);
-		Flies.push_back(fly);
-	}
-}   
+    for (int i = 0; i < room_number; i++) {
+        int x = Xdis(gen);
+        int y = Ydis(gen);
+
+        // 确保生成的怪物不在玩家附近
+        while (abs(x - player.x) < 200 && abs(y - player.y) < 200) {
+            x = Xdis(gen);
+            y = Ydis(gen);
+        }
+
+        double monsterType = monsterTypeDis(gen); // 生成0到1之间的随机数
+
+        if (monsterType < 0.7) {
+            // 70%的概率生成苍蝇怪
+            FLY fly(x, y);
+            Flies.push_back(fly);
+        }
+        else {
+            // 30%的概率生成大苍蝇怪
+            BIGFLY bigfly(x, y);
+            BigFlies.push_back(bigfly);
+        }
+    }
+}
 // 切换房间 
 void switchRoom(SDL_Renderer* renderer, SDL_Texture* newRoomTexture, SDL_Rect& headrect, SDL_Rect& bodyrect, PLAYER player, FLY fly) {
     // 渲染新房间背景
@@ -760,7 +871,7 @@ void switchRoom(SDL_Renderer* renderer, SDL_Texture* newRoomTexture, SDL_Rect& h
     // 清除障碍物
     Obstacles.clear();
 }
-
+// 生成障碍物
 void generateObstacles(int numObstacles, SDL_Texture* obstacleTexture) {
     uniform_int_distribution<> Xdis(150, window_width - 250);
     uniform_int_distribution<> Ydis(120, window_height - 170);
@@ -1011,11 +1122,13 @@ void updateBullets(vector<BULLET>& bullets, int window_width, int window_height,
 
         // 碰撞检测
         if (!it->isBursting) {
-            // 处理敌人子弹
             if (isEnemyBullet) {
+                // 处理敌人子弹
                 if (it->isCollide(player.bumpbox)) {
                     if (!player.isInvincible) { // 如果不在无敌状态
                         player.HP -= it->damage;
+						playHurtGrunt();
+						Mix_PlayChannel(-1, hurt_grunt, 0);//播放受伤音效
                         player.isInvincible = true; // 开始无敌状态
                         player.invincibleStartTime = SDL_GetTicks();
                     }
@@ -1023,7 +1136,7 @@ void updateBullets(vector<BULLET>& bullets, int window_width, int window_height,
                 }
             }
             else {
-                // 玩家子弹，检测是否击中怪物
+                // 玩家子弹，检测是否击中小苍蝇怪物
                 for (auto& fly : Flies) {
                     if (it->isCollide(fly.bumpbox)) {
                         it->burst();
@@ -1035,6 +1148,21 @@ void updateBullets(vector<BULLET>& bullets, int window_width, int window_height,
                         double knockbackStrength = 5.0; // 击退力度，可根据需要调整
                         fly.vx += knockbackStrength * cos(it->direction.radian);
                         fly.vy += knockbackStrength * sin(it->direction.radian);
+                        break;
+                    }
+                }
+                // 玩家子弹，检测是否击中大苍蝇怪物
+                for (auto& bigFly : BigFlies) {
+                    if (it->isCollide(bigFly.bumpbox)) {
+                        it->burst();
+                        bigFly.HP -= it->damage;
+                        if (bigFly.HP <= 0) {
+                            bigFly.die();
+                        }
+                        // 计算击退效果
+                        double knockbackStrength = 3.0; // 大苍蝇怪物较重，击退力度可适当调小
+                        bigFly.vx += knockbackStrength * cos(it->direction.radian);
+                        bigFly.vy += knockbackStrength * sin(it->direction.radian);
                         break;
                     }
                 }
@@ -1068,7 +1196,7 @@ void renderBullets(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Te
             // 计算当前应显示的爆裂动画帧
             Uint32 currentTime = SDL_GetTicks();
             Uint32 elapsedTime = currentTime - bullet.burstStartTime;
-            int frame = (elapsedTime / 100) % BurstMotions.size(); // 每帧100ms
+            int frame = (elapsedTime / 50) % BurstMotions.size(); // 每帧50ms
             SDL_RenderCopy(renderer, BurstMotions[frame], NULL, &bullet.spriteRect);
         }
         else {
@@ -1102,9 +1230,26 @@ void renderPlayerHealth(SDL_Renderer* renderer, const PLAYER& player, SDL_Textur
 
 
 
-// 更新怪物位置在，删除死亡的怪物
-void updateMonsters(vector<FLY>& flies, PLAYER& player, int window_width, int window_height) {
+
+// 更新怪物位置和状态，删除死亡的怪物
+void updateMonsters(vector<FLY>& flies, vector<BIGFLY>& bigFlies, PLAYER& player, int window_width, int window_height) {
+    // 处理小苍蝇怪物
     for (auto it = flies.begin(); it != flies.end();) {
+        if (it->isDying) {
+            // 检查死亡动画是否播放完毕
+            Uint32 currentTime = SDL_GetTicks();
+            if (currentTime - it->deathStartTime >= it->deathDuration) {
+                // 死亡动画播放完毕，从容器中移除
+                it = flies.erase(it);
+                continue;
+            }
+            else {
+                // 更新死亡动画帧
+                it->updateDeathAnimation();
+                ++it;
+                continue;
+            }
+        }
         if (!it->isAlive) {
             it = flies.erase(it);
         }
@@ -1122,20 +1267,120 @@ void updateMonsters(vector<FLY>& flies, PLAYER& player, int window_width, int wi
                 it->isReadyToAttack = true; // 设置为准备攻击状态
             }
 
-            // 碰撞检测
+            // 碰撞检测（小苍蝇怪与玩家）
             if (SDL_HasIntersection(&player.bumpbox, &it->bumpbox)) {
                 if (!player.isInvincible) { // 如果不在无敌状态
                     player.HP -= it->damage;
+                    playHurtGrunt();//播放受伤音效
+                    Mix_PlayChannel(-1, hurt_grunt, 0);
                     player.isInvincible = true; // 开始无敌状态
                     player.invincibleStartTime = SDL_GetTicks(); // 记录无敌开始时间
                 }
-                // 可选：添加角色受伤的反馈，如播放受伤音效
+            }
+
+            ++it;
+        }
+    }
+
+    // 处理大苍蝇怪物
+    for (auto it = bigFlies.begin(); it != bigFlies.end();) {
+        if (it->isDying) {
+            // 检查死亡动画是否播放完毕
+            Uint32 currentTime = SDL_GetTicks();
+            if (currentTime - it->deathStartTime >= it->deathDuration) {
+                // 死亡动画播放完毕，从容器中移除
+                it = bigFlies.erase(it);
+                continue;
+            }
+            else {
+                // 更新死亡动画帧
+                it->updateDeathAnimation();
+                ++it;
+                continue;
+            }
+        }
+        if (!it->isAlive) {
+            it = bigFlies.erase(it);
+        }
+        else {
+            // 更新大苍蝇怪物的位置
+            it->move();
+
+            // 碰撞检测（大苍蝇怪与玩家）
+            if (SDL_HasIntersection(&player.bumpbox, &it->bumpbox)) {
+                if (!player.isInvincible) { // 如果不在无敌状态
+                    player.HP -= it->damage;
+                    playHurtGrunt();//播放受伤音效
+                    Mix_PlayChannel(-1, hurt_grunt, 0);
+                    player.isInvincible = true; // 开始无敌状态
+                    player.invincibleStartTime = SDL_GetTicks(); // 记录无敌开始时间
+                }
             }
 
             ++it;
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+// 结束界面函数
+void renderGameOverScreen(SDL_Renderer* renderer, TTF_Font* font, int window_width, int window_height) {
+    // 设置背景颜色为黑色
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+
+    // 渲染 "Game Over" 文字
+    SDL_Color whiteColor = { 255, 255, 255, 255 };
+    SDL_Surface* gameOverSurface = TTF_RenderText_Solid(font, "Game Over", whiteColor);
+    SDL_Texture* gameOverTexture = SDL_CreateTextureFromSurface(renderer, gameOverSurface);
+    SDL_Rect gameOverRect;
+    gameOverRect.w = gameOverSurface->w;
+    gameOverRect.h = gameOverSurface->h;
+    gameOverRect.x = (window_width - gameOverRect.w) / 2;
+    gameOverRect.y = (window_height - gameOverRect.h) / 2 - 50;
+    SDL_RenderCopy(renderer, gameOverTexture, NULL, &gameOverRect);
+
+    // 渲染 "The number of rooms you passed: " 文字
+    string roomPassed = "The number of rooms you passed: " + to_string(room_number - 1);
+    SDL_Surface* roomPassedSurface = TTF_RenderText_Solid(font, roomPassed.c_str(), whiteColor);
+    SDL_Texture* roomPassedTexture = SDL_CreateTextureFromSurface(renderer, roomPassedSurface);
+    SDL_Rect roomPassedRect;
+    roomPassedRect.w = roomPassedSurface->w;
+    roomPassedRect.h = roomPassedSurface->h;
+    roomPassedRect.x = (window_width - roomPassedRect.w) / 2;
+    roomPassedRect.y = (window_height - roomPassedRect.h) / 2;
+    SDL_RenderCopy(renderer, roomPassedTexture, NULL, &roomPassedRect);
+
+    // 渲染 "Press Enter to Restart or Esc to Exit" 文字
+    SDL_Surface* exitSurface = TTF_RenderText_Solid(font, "Press Enter to Restart or Esc to Exit", whiteColor);
+    SDL_Texture* exitTexture = SDL_CreateTextureFromSurface(renderer, exitSurface);
+    SDL_Rect exitRect;
+    exitRect.w = exitSurface->w;
+    exitRect.h = exitSurface->h;
+    exitRect.x = (window_width - exitRect.w) / 2;
+    exitRect.y = (window_height - exitRect.h) / 2 + 50;
+    SDL_RenderCopy(renderer, exitTexture, NULL, &exitRect);
+
+    // 更新屏幕
+    SDL_RenderPresent(renderer);
+
+    // 释放资源
+    SDL_FreeSurface(gameOverSurface);
+    SDL_DestroyTexture(gameOverTexture);
+    SDL_FreeSurface(exitSurface);
+    SDL_DestroyTexture(exitTexture);
+}
+
 
 
 
@@ -1206,6 +1451,8 @@ int main(int, char**) {
         SDL_Log("SDL_mixer could not initialize! SDL_mixer Error: %s", Mix_GetError());
         return 1;
     }
+   
+	modifyVolume();//调整音量
 
     //播放开场视频和音频
     playOpeningVideoSound();
@@ -1218,22 +1465,18 @@ int main(int, char**) {
     Mix_FreeMusic(opening_video_sound);
     bool startGame = false;
 
+
+
+
+    /*开始界面*/
     //播放音乐
-    playMainMusic();
-    if (main_music == NULL) {
+    playTitleScreenSound();
+    if (title_screen_sound == NULL) {
         SDL_Log("Failed to load beat music! SDL_mixer Error: %s", Mix_GetError());
         return 1;
     }
-    Mix_PlayMusic(main_music, -1);
+    Mix_PlayMusic(title_screen_sound, -1);
 
-    // 加载障碍物纹理
-    SDL_Texture* obstacleTexture = IMG_LoadTexture(renderer, "ISAAC/Obstacle/stone.png");
-    if (obstacleTexture == NULL) {
-        SDL_Log("Failed to load obstacle texture: %s", IMG_GetError());
-        return 1;
-    }
-
-    /*开始界面*/
 
     // 创建开始界面纹理
     SDL_Texture* start_screen = IMG_LoadTexture(renderer, "ISAAC/Backgrounds/start_screen.png");
@@ -1269,16 +1512,25 @@ int main(int, char**) {
         renderText(renderer, "Press Enter To Start", window_width / 2 , window_height /2, blackColor);
 
 
+
         SDL_RenderPresent(renderer);
 
         SDL_Delay(16); // 控制帧率
     }
 
 
-
-
     /*释放开始界面纹理*/
     SDL_DestroyTexture(start_screen);
+
+
+	// 播放主音乐
+    playMainMusic();
+    if (main_music == NULL) {
+        SDL_Log("Failed to load beat music! SDL_mixer Error: %s", Mix_GetError());
+        return 1;
+    }
+    Mix_PlayMusic(main_music, -1);
+
 
 
 
@@ -1287,12 +1539,12 @@ int main(int, char**) {
     SDL_Texture* black = IMG_LoadTexture(renderer, "ISAAC/Backgrounds/black.png");
 
     /* 创建纹理 */
-
     SDL_Texture* bullet_texture = IMG_LoadTexture(renderer, "ISAAC/Characters/bullet.png");
     SDL_Texture* enemy_bullet_texture = IMG_LoadTexture(renderer, "ISAAC/Monsters/enemy_bullet.png");
     SDL_Texture* full_heart = IMG_LoadTexture(renderer, "ISAAC/Characters/full_heart.png");
     SDL_Texture* half_heart = IMG_LoadTexture(renderer, "ISAAC/Characters/half_heart.png");
     SDL_Texture* empty_heart = IMG_LoadTexture(renderer, "ISAAC/Characters/empty_heart.png");
+    SDL_Texture* obstacleTexture = IMG_LoadTexture(renderer, "ISAAC/Obstacle/stone.png");
 
     /* 初始化动画纹理数组 */
     vector<SDL_Texture*> BackMotions;
@@ -1438,7 +1690,17 @@ int main(int, char**) {
             SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
         }
     }
-
+    vector<SDL_Texture*> BigFlyMotions;
+    for (int i = 1; i <= 2; ++i) {
+        string filename = "ISAAC/Monsters/BigFly/BigFlyMotion" + to_string(i) + ".png";
+        SDL_Texture* texture = IMG_LoadTexture(renderer, filename.c_str());
+        if (texture) {
+            BigFlyMotions.push_back(texture);
+        }
+        else {
+            SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
+        }
+    }
 
 
     /* 初始化纹理位置 */
@@ -1476,6 +1738,9 @@ int main(int, char**) {
     while (!isquit) {
 
         if (isaac.HP <= 0) {
+			// 播放死亡音效
+			playDeathGrunt();
+            Mix_PlayChannel(-1, death_grunt, 0);
             // 显示结束界面
             renderGameOverScreen(renderer, ttfFont, window_width, window_height);
             // 等待用户按下回车键重新开始或按下ESC键退出游戏
@@ -1499,7 +1764,7 @@ int main(int, char**) {
                             Bullets.clear(); // 清空子弹
                             FlyBullets.clear(); // 清空怪物子弹
                             Flies.clear(); // 清空怪物
-                            generateMonster(room_number, isaac, fly_standard); // 重新生成怪物
+                            generateMonsters(room_number, isaac); // 重新生成怪物
                             gameOver = false;
                         }
                         if (event.key.keysym.sym == SDLK_ESCAPE) {
@@ -1524,8 +1789,9 @@ int main(int, char**) {
         updateBullets(FlyBullets, window_width, window_height, EnemyBurstMotions, true, isaac);
 
 
-        // 更新怪物位置
-        updateMonsters(Flies, isaac, window_width, window_height);
+        // 更新怪物位置和状态
+        updateMonsters(Flies, BigFlies, isaac, window_width, window_height);
+
 
         // 渲染背景
         SDL_RenderClear(renderer);
@@ -1555,10 +1821,10 @@ int main(int, char**) {
             switchRoom(renderer, basement, headrect, bodyrect,isaac, fly_standard);
             switching_room = false;
             black_screen = false;
-			int obstacle_number = randomNumberOneToTen(); // 随机生成1-10个障碍物
+			int obstacle_number = randomNumberOneToSeven(); // 随机生成1-7个障碍物
             generateObstacles(obstacle_number, obstacleTexture); // 生成1个障碍物
             // 随机生成新的怪物
-            generateMonster(room_number, isaac, fly_standard);
+            generateMonsters(room_number, isaac);
 			room_number++;
         }
 
@@ -1598,19 +1864,26 @@ int main(int, char**) {
             SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
             // 绘制角色的碰撞箱
             SDL_RenderDrawRect(renderer, &isaac.bumpbox);
-            // 绘制怪物的碰撞箱
+            // 绘制苍蝇怪的碰撞箱
             for (const auto& fly : Flies) {
                 SDL_RenderDrawRect(renderer, &fly.bumpbox);
             }
-			// 绘制子弹的碰撞箱
-			for (const auto& bullet : Bullets) {
-				SDL_RenderDrawRect(renderer, &bullet.bumpbox);
+			// 绘制大苍蝇怪的碰撞箱
+			for (const auto& bigFly : BigFlies) {
+				SDL_RenderDrawRect(renderer, &bigFly.bumpbox);
 			}
-			// 绘制障碍物的碰撞箱
-			for (const auto& obstacle : Obstacles) {
-				SDL_RenderDrawRect(renderer, &obstacle.collisionRect);
-			}
+            // 绘制子弹的碰撞箱
+            for (const auto& bullet : Bullets) {
+                SDL_RenderDrawRect(renderer, &bullet.bumpbox);
+            }
+            // 绘制障碍物的碰撞箱
+            for (const auto& obstacle : Obstacles) {
+                SDL_RenderDrawRect(renderer, &obstacle.collisionRect);
+            }
             */
+			
+
+
 
 
 
@@ -1625,15 +1898,33 @@ int main(int, char**) {
             }
             // 渲染苍蝇怪
             for (auto& fly : Flies) {
-                if (fly.state == ATTACK) {
+                if (fly.isDying) {
+                    // 渲染死亡动画
+                    flyDeadMotion(renderer, FlyDeadMotions, fly.spriteRect, fly);
+                }
+                else if (fly.state == ATTACK) {
                     flyAttackMotion(renderer, FlyMotions, _FlyMotions, fly.spriteRect, fly, isaac);
                 }
                 else {
                     flyIdleMotion(renderer, FlyMotions, _FlyMotions, fly.spriteRect, fly, isaac);
                 }
             }
-            // 渲染怪物子弹
+            // 渲染大苍蝇怪
+            for (auto& bigFly : BigFlies) {
+				// 渲染死亡动画
+                if (bigFly.isDying) {
+                    bigFlyDeadMotion(renderer, FlyDeadMotions,bigFly.spriteRect, bigFly);
+				}
+                else {
+                    bigFlyMotion(renderer, BigFlyMotions, bigFly.spriteRect, bigFly);
+                }
+            }
+
+            // 渲染玩家子弹
+            renderBullets(renderer, Bullets, bullet_texture, BurstMotions);
+            // 渲染敌方子弹
             renderBullets(renderer, FlyBullets, enemy_bullet_texture, EnemyBurstMotions);
+
 
         }
 
@@ -1666,6 +1957,9 @@ int main(int, char**) {
     }
     TTF_Quit();
     Mix_FreeMusic(main_music);
+	Mix_FreeMusic(opening_video_sound);
+	Mix_FreeChunk(death_grunt);
+	Mix_FreeChunk(hurt_grunt);
     Mix_CloseAudio();
     SDL_DestroyTexture(obstacleTexture);
     SDL_DestroyRenderer(renderer);

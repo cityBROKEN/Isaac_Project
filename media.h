@@ -121,14 +121,38 @@ void playVideo(const char* videoPath, SDL_Renderer* renderer) {
 
 
 /* —————————— 声音 —————————— */
-Mix_Music* main_music = NULL;
-Mix_Music* opening_video_sound = NULL;
-void playOpeningVideoSound()
-{
-    opening_video_sound = Mix_LoadMUS("ISAAC/Sounds/openingvideo.wav");
-}
-void playMainMusic()
-{
-    main_music = Mix_LoadMUS("ISAAC/Sounds/burning basement.mp3");
-}
+Mix_Music* main_music = NULL;//主音乐
+Mix_Music* opening_video_sound = NULL;//开场音乐
+Mix_Music* title_screen_sound = NULL;//标题音乐
+Mix_Music* ending_sound = NULL;//结束音乐
 
+Mix_Chunk* hurt_grunt = NULL;//受伤音效
+Mix_Chunk* death_grunt = NULL;//死亡音效
+Mix_Chunk* shoot_sound1 = NULL;//射击音效
+Mix_Chunk* shoot_sound2 = NULL;//射击音效
+Mix_Chunk* clear_music = NULL;//清除房间音效
+Mix_Chunk* monster_death = NULL;//怪物死亡音效
+Mix_Chunk* monster_swarm = NULL;//怪物音效
+
+void playOpeningVideoSound(){ opening_video_sound = Mix_LoadMUS("ISAAC/Sounds/openingvideo.wav");}
+void playMainMusic(){main_music = Mix_LoadMUS("ISAAC/Sounds/burning basement.mp3");}
+void playTitleScreenSound() { title_screen_sound = Mix_LoadMUS("ISAAC/Sounds/title screen.mp3"); }
+void playEndingSound() { ending_sound = Mix_LoadMUS("ISAAC/Sounds/you died.ogg"); }
+void playHurtGrunt() { hurt_grunt = Mix_LoadWAV("ISAAC/Sounds/hurt grunt.wav"); }
+void playDeathGrunt() { death_grunt = Mix_LoadWAV("ISAAC/Sounds/isaac dies new.wav"); }
+void playShootSound1() { shoot_sound1 = Mix_LoadWAV("ISAAC/Sounds/tear fire 4.wav"); }
+void playShootSound2() { shoot_sound2 = Mix_LoadWAV("ISAAC/Sounds/tear fire 5.wav"); }
+void playClearMusic() { clear_music = Mix_LoadWAV("ISAAC/Sounds/danglewhistle.wav"); }
+void playMonsterDeath() { monster_death = Mix_LoadWAV("ISAAC/Sounds/death burst small 3.wav"); }
+void playMonsterSwarm() { monster_swarm = Mix_LoadWAV("ISAAC/Sounds/insect swarm.wav"); }
+
+void modifyVolume() {
+    Mix_VolumeMusic(10);
+    Mix_VolumeChunk(shoot_sound1,128);
+	Mix_VolumeChunk(shoot_sound2, 128);
+	Mix_VolumeChunk(hurt_grunt, 128);
+	Mix_VolumeChunk(death_grunt, 128);
+	Mix_VolumeChunk(clear_music, 128);
+	Mix_VolumeChunk(monster_death, 128);
+	Mix_VolumeChunk(monster_swarm, 0);
+}
