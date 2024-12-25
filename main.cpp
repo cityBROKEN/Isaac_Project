@@ -72,6 +72,23 @@ public:
 };
 vector<OBSTACLE> Obstacles; // 障碍物容器
 
+class HEART {
+public:
+    float x;
+    float y;
+    bool isPickedUp;
+    SDL_Rect bumpbox;
+	HEART(float x, float y) {
+		this->x = x;
+		this->y = y;
+		this->isPickedUp = false;
+		this->bumpbox.x = x;
+		this->bumpbox.y = y;
+		this->bumpbox.w = 36;
+		this->bumpbox.h = 29;
+	}
+};
+vector<HEART> Hearts;
 
 
 /* —————————— 角色 —————————— */
@@ -111,6 +128,13 @@ public:
         this->invincibleStartTime = 0;
         this->invincibleDuration = 1000; // 无敌持续时间为1秒，可根据需要调整
 		this->isAlive = true;
+    }
+    bool isCollidingWithHeart(const HEART& heart) const {
+		if (bumpbox.x + bumpbox.w < heart.bumpbox.x || bumpbox.x > heart.bumpbox.x + heart.bumpbox.w ||
+			bumpbox.y + bumpbox.h < heart.bumpbox.y || bumpbox.y > heart.bumpbox.y + heart.bumpbox.h) {
+			return false;
+		}
+		return true;
     }
 };
 
@@ -468,11 +492,11 @@ public:
         if (distance(x, y, player.x, player.y) <= 600)move_type = 2;
         else move_type = 3;
     }
-    void shoot(const PLAYER& player) { // 发射子弹
+    virtual void shoot (const PLAYER& player) { // 发射子弹
         Uint32 currentTime = SDL_GetTicks();
         if (isReadyToAttack) {
             double angle = atan2(player.y - y, player.x - x);
-            FlyBullets.push_back(BULLET(x + 35, y + 50, 5, damage, 300, { angle }));
+            FlyBullets.push_back(BULLET(x + 35, y + 50, 8, damage, 300, { angle }));
             lastShootTime = currentTime; // 更新上次发射时间
             attackStartTime = currentTime; // 记录攻击开始时间
             isReadyToAttack = false; // 设置为不准备攻击状态
@@ -580,7 +604,7 @@ public:
             double angle = 0;
             for (int i = 0; i < 6; i++) {
                 // 修改这里，将子弹添加到 FlyBullets 而不是 Bullets
-                FlyBullets.push_back(BULLET(x + 45, y + 45, 5, damage, 300, { angle }));
+                FlyBullets.push_back(BULLET(x + 45, y + 45, 8, damage, 300, { angle }));
                 angle += PI / 3;
             }
             // 播放死亡音效
@@ -606,6 +630,60 @@ vector<BIGFLY> BigFlies;
 BIGFLY bigfly_standard(100, 100);
 
 
+//超级苍蝇怪
+class SUPERFLY : public FLY {
+public:
+    SUPERFLY(int x, int y) : FLY(x, y) {
+        // 调整大小和伤害
+        this->spriteRect.w *= 3;
+        this->spriteRect.h *= 3;
+        this->bumpbox.w *= 3;
+        this->bumpbox.h *= 3;
+        this->damage *= 3;
+		this->HP *= 5;
+        
+    }
+
+    void move(const PLAYER& player) {
+        FLY::move(player);
+        // 更新碰撞箱和贴图的位置
+        this->bumpbox.x = static_cast<int>(this->x) + (this->spriteRect.w - this->bumpbox.w) / 2;
+        this->bumpbox.y = static_cast<int>(this->y) + (this->spriteRect.h - this->bumpbox.h) / 2;
+        this->spriteRect.x = static_cast<int>(this->x);
+        this->spriteRect.y = static_cast<int>(this->y);
+    }
+	//死亡时在原地生成两只苍蝇怪
+	void die() {
+		if (!isDying) {
+			isDying = true;
+			deathStartTime = SDL_GetTicks(); // 记录死亡动画开始时间
+			vx = 0; // 停止移动
+			vy = 0;
+			// 死亡后生成两只苍蝇怪
+			Flies.push_back(FLY(x+10, y));
+			Flies.push_back(FLY(x, y+10));
+			// 播放死亡音效
+			playMonsterDeath();
+			Mix_PlayChannel(-1, monster_death, 0);
+		}
+	}
+
+    void shoot(const PLAYER& player) {
+        Uint32 currentTime = SDL_GetTicks();
+        if (isReadyToAttack) {
+            double angle = atan2(player.y - bumpbox.y, player.x - bumpbox.x);
+            FlyBullets.push_back(BULLET(x + spriteRect.w / 2, y + spriteRect.h / 2 + 30, 5, damage, 600, { angle }));
+            FlyBullets.push_back(BULLET(x + spriteRect.w / 2, y + spriteRect.h / 2 + 30, 5, damage, 600, { angle + PI / 6 }));
+            FlyBullets.push_back(BULLET(x + spriteRect.w / 2, y + spriteRect.h / 2 + 30, 5, damage, 600, { angle - PI / 6 }));
+            lastShootTime = currentTime; // 更新上次发射时间
+            attackStartTime = currentTime; // 记录攻击开始时间
+            isReadyToAttack = false; // 设置为不准备攻击状态
+        }
+    }
+
+};
+vector <SUPERFLY> SuperFlies;
+SUPERFLY superfly_standard(100, 100);
 
 
 
@@ -812,6 +890,75 @@ void bigFlyDeadMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BigFlyDeadMo
 	}
 	SDL_RenderCopy(renderer, BigFlyDeadMotions[bigfly.currentFrame], NULL, &bigflyrect);
 }
+// 超级苍蝇怪常态动画，与苍蝇怪相同，只是大小不同，3倍
+void superFlyIdleMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotions, vector<SDL_Texture*>& _FlyMotions, SDL_Rect& superflyrect, FLY& superfly, const PLAYER& player) {
+    if (player.x >= superfly.x) {
+        Uint32 currentTime = SDL_GetTicks();
+        // 每100ms切换帧
+        if (currentTime - superfly.lastFrameTime >= 100) {
+            superfly.currentFrame = (superfly.currentFrame + 1) % 2;
+            superfly.lastFrameTime = currentTime;
+        }
+        SDL_RenderCopy(renderer, FlyMotions[superfly.currentFrame], NULL, &superflyrect);
+    }
+    else {
+        Uint32 currentTime = SDL_GetTicks();
+        // 每100ms切换帧
+        if (currentTime - superfly.lastFrameTime >= 100) {
+            superfly.currentFrame = (superfly.currentFrame + 1) % 2;
+            superfly.lastFrameTime = currentTime;
+        }
+        SDL_RenderCopy(renderer, _FlyMotions[superfly.currentFrame], NULL, &superflyrect);
+    }
+}
+// 超级苍蝇怪死亡动画
+void superFlyDeadMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyDeadMotions, SDL_Rect& superflyrect, SUPERFLY& superfly) {
+	// 确保帧数不超过动画总帧数
+	int totalFrames = FlyDeadMotions.size();
+	if (superfly.currentFrame >= totalFrames) {
+		superfly.currentFrame = totalFrames - 1;
+	}
+	SDL_RenderCopy(renderer, FlyDeadMotions[superfly.currentFrame], NULL, &superflyrect);
+}
+//超级苍蝇怪攻击动画
+void superFlyAttackMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotions, vector<SDL_Texture*>& _FlyMotions, SDL_Rect& superflyrect, FLY& superfly, const PLAYER& player) {
+    if (player.x >= superfly.x) {
+        Uint32 currentTime = SDL_GetTicks();
+        // 每50ms切换帧
+        if (currentTime - superfly.lastFrameTime >= 40) {
+            superfly.currentFrame = (superfly.currentFrame + 1) % 16;
+            superfly.lastFrameTime = currentTime;
+        }
+        SDL_RenderCopy(renderer, FlyMotions[superfly.currentFrame], NULL, &superflyrect);
+        // 当动画帧为第9帧时发射子弹
+        if (superfly.currentFrame == 8 && !superfly.hasShot) {
+            superfly.shoot(player);
+            superfly.hasShot = true; // 设置已发射标志，防止重复发射
+        }
+        // 检查动画是否播放完毕
+        if (currentTime - superfly.attackStartTime >= 440) { // 假设攻击动画持续800ms
+            superfly.state = IDLE; // 设置为常态
+            superfly.isReadyToAttack = false; // 设置为不准备攻击状态
+            superfly.hasShot = false; // 重置已发射标志
+        }
+    }
+    else {
+        Uint32 currentTime = SDL_GetTicks();
+        // 每50ms切换帧
+        if (currentTime - superfly.lastFrameTime >= 40) {
+            superfly.currentFrame = (superfly.currentFrame + 1) % 16;
+            superfly.lastFrameTime = currentTime;
+        }
+        SDL_RenderCopy(renderer, _FlyMotions[superfly.currentFrame], NULL, &superflyrect);
+        // 当动画帧为第9帧时发射子弹
+        if (superfly.currentFrame == 8 && !superfly.hasShot) {
+            superfly.shoot(player);
+            superfly.hasShot = true; // 设置已发射标志，防止重复发射
+        }
+    }
+}
+
+
 
 /* —————————————————————————————— */
 
@@ -829,32 +976,47 @@ int room_number = 1;
 void generateMonsters(int room_number, PLAYER& player) {
     uniform_int_distribution<int> Xdis(150, window_width - 150);
     uniform_int_distribution<int> Ydis(120, window_height - 120);
+    uniform_int_distribution<int> BXdis(300, window_width - 300);
+	uniform_int_distribution<int> BYdis(300, window_height - 300);
     uniform_real_distribution<double> monsterTypeDis(0.0, 1.0); // 用于随机决定怪物类型
 
     for (int i = 0; i < room_number; i++) {
         int x = Xdis(gen);
         int y = Ydis(gen);
+		int Bx = BXdis(gen);
+		int By = BYdis(gen);
+
 
         // 确保生成的怪物不在玩家附近
         while (abs(x - player.x) < 200 && abs(y - player.y) < 200) {
             x = Xdis(gen);
             y = Ydis(gen);
         }
+		while (abs(Bx - player.x) < 200 && abs(By - player.y) < 200) {
+			Bx = BXdis(gen);
+			By = BYdis(gen);
+		}
 
         double monsterType = monsterTypeDis(gen); // 生成0到1之间的随机数
 
-        if (monsterType < 0.7) {
-            // 70%的概率生成苍蝇怪
+        if (monsterType < 0.6) {
+            // 60%的概率生成苍蝇怪
             FLY fly(x, y);
             Flies.push_back(fly);
         }
-        else {
+        else if (monsterType < 0.3) {
             // 30%的概率生成大苍蝇怪
             BIGFLY bigfly(x, y);
             BigFlies.push_back(bigfly);
         }
+        else {
+            // 10%的概率生成超大型苍蝇怪
+            SUPERFLY superfly(Bx, By);
+            SuperFlies.push_back(superfly);
+        }
     }
 }
+
 // 切换房间 
 void switchRoom(SDL_Renderer* renderer, SDL_Texture* newRoomTexture, SDL_Rect& headrect, SDL_Rect& bodyrect, PLAYER player, FLY fly) {
     // 渲染新房间背景
@@ -1175,6 +1337,21 @@ void updateBullets(vector<BULLET>& bullets, int window_width, int window_height,
                         break;
                     }
                 }
+				// 玩家子弹，检测是否击中超级苍蝇怪物
+                for (auto& superFly : SuperFlies) {
+                    if (it->isCollide(superFly.bumpbox)) {
+                        it->burst();
+                        superFly.HP -= it->damage;
+                        if (superFly.HP <= 0) {
+                            superFly.die();
+                        }
+                        // 计算击退效果
+                        double knockbackStrength = 3.0; // 大苍蝇怪物较重，击退力度可适当调小
+                        superFly.vx += knockbackStrength * cos(it->direction.radian);
+                        superFly.vy += knockbackStrength * sin(it->direction.radian);
+                        break;
+                    }
+                }
             }
         }
 
@@ -1241,7 +1418,7 @@ void renderPlayerHealth(SDL_Renderer* renderer, const PLAYER& player, SDL_Textur
 
 
 // 更新怪物位置和状态，删除死亡的怪物
-void updateMonsters(vector<FLY>& flies, vector<BIGFLY>& bigFlies, PLAYER& player, int window_width, int window_height) {
+void updateMonsters(vector<FLY>& flies, vector<BIGFLY>& bigFlies, vector<SUPERFLY>& superFlies, PLAYER& player, int window_width, int window_height) {
     // 处理小苍蝇怪物
     for (auto it = flies.begin(); it != flies.end();) {
         if (it->isDying) {
@@ -1280,7 +1457,7 @@ void updateMonsters(vector<FLY>& flies, vector<BIGFLY>& bigFlies, PLAYER& player
             if (SDL_HasIntersection(&player.bumpbox, &it->bumpbox)) {
                 if (!player.isInvincible) { // 如果不在无敌状态
                     player.HP -= it->damage;
-                    playHurtGrunt();//播放受伤音效
+                    playHurtGrunt(); // 播放受伤音效
                     Mix_PlayChannel(-1, hurt_grunt, 0);
                     player.isInvincible = true; // 开始无敌状态
                     player.invincibleStartTime = SDL_GetTicks(); // 记录无敌开始时间
@@ -1319,7 +1496,56 @@ void updateMonsters(vector<FLY>& flies, vector<BIGFLY>& bigFlies, PLAYER& player
             if (SDL_HasIntersection(&player.bumpbox, &it->bumpbox)) {
                 if (!player.isInvincible) { // 如果不在无敌状态
                     player.HP -= it->damage;
-                    playHurtGrunt();//播放受伤音效
+                    playHurtGrunt(); // 播放受伤音效
+                    Mix_PlayChannel(-1, hurt_grunt, 0);
+                    player.isInvincible = true; // 开始无敌状态
+                    player.invincibleStartTime = SDL_GetTicks(); // 记录无敌开始时间
+                }
+            }
+
+            ++it;
+        }
+    }
+
+    // 处理超级苍蝇怪物
+    for (auto it = superFlies.begin(); it != superFlies.end();) {
+        if (it->isDying) {
+            // 检查死亡动画是否播放完毕
+            Uint32 currentTime = SDL_GetTicks();
+            if (currentTime - it->deathStartTime >= it->deathDuration) {
+                // 死亡动画播放完毕，从容器中移除
+                it = superFlies.erase(it);
+                continue;
+            }
+            else {
+                // 更新死亡动画帧
+                it->updateDeathAnimation();
+                ++it;
+                continue;
+            }
+        }
+        if (!it->isAlive) {
+            it = superFlies.erase(it);
+        }
+        else {
+            it->detectState(player);
+            it->updateMoveType(player);
+            it->move(player);
+
+            // 更新位置，应用击退效果
+            it->updatePosition();
+
+            // 检查是否达到攻击间隔
+            Uint32 currentTime = SDL_GetTicks();
+            if (!it->isReadyToAttack && currentTime - it->lastShootTime >= it->shootInterval) {
+                it->isReadyToAttack = true; // 设置为准备攻击状态
+            }
+
+            // 碰撞检测（超级苍蝇怪与玩家）
+            if (SDL_HasIntersection(&player.bumpbox, &it->bumpbox)) {
+                if (!player.isInvincible) { // 如果不在无敌状态
+                    player.HP -= it->damage;
+                    playHurtGrunt(); // 播放受伤音效
                     Mix_PlayChannel(-1, hurt_grunt, 0);
                     player.isInvincible = true; // 开始无敌状态
                     player.invincibleStartTime = SDL_GetTicks(); // 记录无敌开始时间
@@ -1330,7 +1556,6 @@ void updateMonsters(vector<FLY>& flies, vector<BIGFLY>& bigFlies, PLAYER& player
         }
     }
 }
-
 
 
 
@@ -1560,6 +1785,7 @@ int main(int, char**) {
     SDL_Texture* obstacleTexture = IMG_LoadTexture(renderer, "ISAAC/Obstacle/stone.png");
 	SDL_Texture* end_menu = IMG_LoadTexture(renderer, "ISAAC/Backgrounds/endmenu.png");
 	SDL_Texture* pause_menu = IMG_LoadTexture(renderer, "ISAAC/Backgrounds/pausescreen.png");
+	SDL_Texture* red_heart = IMG_LoadTexture(renderer, "ISAAC/Characters/heart.png");
 
     /* 初始化动画纹理数组 */
     vector<SDL_Texture*> BackMotions;
@@ -1765,7 +1991,11 @@ int main(int, char**) {
                         isPause = false;
 					}
 					if (event.type == SDL_KEYDOWN) {
-						if (event.key.keysym.sym == SDLK_ESCAPE) {
+                        if (event.key.keysym.sym == SDLK_ESCAPE) {
+							isquit = true;
+							isPause = false;
+						}
+						if (event.key.keysym.sym == SDLK_RETURN) {
 							// 继续游戏
 							Mix_ResumeMusic();
                             isPause = false;
@@ -1817,6 +2047,7 @@ int main(int, char**) {
                             FlyBullets.clear(); // 清空怪物子弹
                             Flies.clear(); // 清空苍蝇怪
 							BigFlies.clear(); // 清空大苍蝇怪
+							SuperFlies.clear(); // 清空超级苍蝇怪
                             room_number = 0; // 重置房间号
 							isClear = 1; // 重置是否清理完怪物
                             generateMonsters(room_number, isaac); // 重新生成怪物
@@ -1845,7 +2076,7 @@ int main(int, char**) {
 
 
         // 更新怪物位置和状态
-        updateMonsters(Flies, BigFlies, isaac, window_width, window_height);
+        updateMonsters(Flies, BigFlies, SuperFlies, isaac, window_width, window_height);
 
 
         // 渲染背景
@@ -1903,11 +2134,21 @@ int main(int, char**) {
 
 
 
-		// 检查是否清理完怪物，若是则播放胜利音乐
-		if (Flies.empty() && BigFlies.empty()) {
+		// 检查是否清理完怪物，若是则播放胜利音乐，随机掉落红心
+		if (Flies.empty() && BigFlies.empty() && SuperFlies.empty()) {
             if (isClear == room_number) {
                 playClearMusic();
                 Mix_PlayChannel(-1, clear_music, 0);
+
+				// 随机掉落红心
+				uniform_real_distribution<double> u(0, 1);
+				default_random_engine e(rd());
+				double random = u(e);
+				if (random < 0.2) {
+					//在屏幕中央生成红心
+					HEART heart(window_width / 2 - 18, window_height / 2 - 14);
+					Hearts.push_back(heart);
+				}
 				isClear++;
             }
 		}
@@ -1990,6 +2231,20 @@ int main(int, char**) {
                     bigFlyMotion(renderer, BigFlyMotions, bigFly.spriteRect, bigFly);
                 }
             }
+			// 渲染超级苍蝇怪
+            for (auto& superfly : SuperFlies) {
+                if (superfly.isDying) {
+                    // 渲染死亡动画
+                    flyDeadMotion(renderer, FlyDeadMotions, superfly.spriteRect, superfly);
+                }
+                else if (superfly.state == ATTACK) {
+                    flyAttackMotion(renderer, FlyMotions, _FlyMotions, superfly.spriteRect, superfly, isaac);
+                }
+                else {
+                    flyIdleMotion(renderer, FlyMotions, _FlyMotions, superfly.spriteRect, superfly, isaac);
+                }
+            }
+
 
             // 渲染玩家子弹
             renderBullets(renderer, Bullets, bullet_texture, BurstMotions);
@@ -1997,11 +2252,24 @@ int main(int, char**) {
             renderBullets(renderer, FlyBullets, enemy_bullet_texture, EnemyBurstMotions);
 
 
+			// 渲染红心
+            for (auto& heart : Hearts) {
+                if (!heart.isPickedUp && isaac.isCollidingWithHeart(heart)) {
+					heart.isPickedUp = true; // 设置为已拾取
+                    isaac.HP += 2; // 增加角色的生命值
+					if (isaac.HP > 12) {
+						isaac.HP = 12;
+					}
+                }
+                if (!heart.isPickedUp) {
+                    SDL_RenderCopy(renderer, red_heart, NULL, &heart.bumpbox);
+                }
+            }
+
+
         }
 
         /* —————————————————————————————— */
-
-
 
 
 
