@@ -1904,6 +1904,8 @@ int main(int argc, char* argv[])
 		SDL_Log("TTF_Init: %s\n", TTF_GetError());
 		return 1;
 	}
+	
+	//初始化各种类
 
 	// 初始化事件队列
 	bool isquit = false;
@@ -1937,12 +1939,10 @@ int main(int argc, char* argv[])
 	}
 
 	//初始化音乐与音效
-	if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0)
+	if (!initAudio())
 	{
-		SDL_Log("SDL_mixer could not initialize! SDL_mixer Error: %s", Mix_GetError());
 		return 1;
 	}
-
 	modifyVolume(); //调整音量
 
 	//播放开场视频和音频
@@ -2618,11 +2618,7 @@ int main(int argc, char* argv[])
 		Characters.clear();
 	}
 	TTF_Quit();
-	Mix_FreeMusic(main_music);
-	Mix_FreeMusic(opening_video_sound);
-	Mix_FreeChunk(death_grunt);
-	Mix_FreeChunk(hurt_grunt);
-	Mix_CloseAudio();
+	cleanupAudio();
 	SDL_DestroyTexture(obstacleTexture);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);

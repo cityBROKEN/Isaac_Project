@@ -134,6 +134,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="media.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="font.h" />
