@@ -136,8 +136,8 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="class.h" />
     <ClInclude Include="font.h" />
+    <ClInclude Include="framwork.h" />
     <ClInclude Include="media.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

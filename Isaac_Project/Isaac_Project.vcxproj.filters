@@ -20,13 +20,13 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="class.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="media.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="font.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="framwork.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
