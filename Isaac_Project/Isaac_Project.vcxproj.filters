@@ -29,7 +29,7 @@
     <ClInclude Include="font.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="framwork.h">
+    <ClInclude Include="framework.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

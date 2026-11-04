@@ -83,7 +83,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="font.h" />
-    <ClInclude Include="framwork.h" />
+    <ClInclude Include="framework.h" />
     <ClInclude Include="media.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

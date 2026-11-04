@@ -1,6 +1,6 @@
 ﻿//变量下划线，函数小驼峰，数组大驼峰，类和结构体全大写
 #define SDL_MAIN_HANDLED
-#include "framwork.h"
+#include "framework.h"
 #include "media.h"
 #include "font.h"
 using namespace std;

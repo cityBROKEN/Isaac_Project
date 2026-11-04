@@ -1,21 +1,21 @@
-#include "media.h"
+ï»¿#include "media.h"
 
-/* ¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª ÉùÒô ¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª */
-// ¶¨ÒåÒôÀÖºÍÒôĞ§È«¾Ö±äÁ¿
-Mix_Music* main_music = nullptr; //Ö÷ÒôÀÖ
-Mix_Music* opening_video_sound = nullptr; //¿ª³¡ÒôÀÖ
-Mix_Music* title_screen_sound = nullptr; //±êÌâÒôÀÖ
-Mix_Music* ending_sound = nullptr; //½áÊøÒôÀÖ
+/* â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” å£°éŸ³ â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
+// å®šä¹‰éŸ³ä¹å’ŒéŸ³æ•ˆå…¨å±€å˜é‡
+Mix_Music* main_music = nullptr; //ä¸»éŸ³ä¹
+Mix_Music* opening_video_sound = nullptr; //å¼€åœºéŸ³ä¹
+Mix_Music* title_screen_sound = nullptr; //æ ‡é¢˜éŸ³ä¹
+Mix_Music* ending_sound = nullptr; //ç»“æŸéŸ³ä¹
 
-Mix_Chunk* hurt_grunt = nullptr; //ÊÜÉËÒôĞ§
-Mix_Chunk* death_grunt = nullptr; //ËÀÍöÒôĞ§
-Mix_Chunk* shoot_sound1 = nullptr; //Éä»÷ÒôĞ§
-Mix_Chunk* shoot_sound2 = nullptr; //Éä»÷ÒôĞ§
-Mix_Chunk* clear_music = nullptr; //Çå³ı·¿¼äÒôĞ§
-Mix_Chunk* monster_death = nullptr; //¹ÖÎïËÀÍöÒôĞ§
-Mix_Chunk* monster_swarm = nullptr; //¹ÖÎïÒôĞ§
+Mix_Chunk* hurt_grunt = nullptr; //å—ä¼¤éŸ³æ•ˆ
+Mix_Chunk* death_grunt = nullptr; //æ­»äº¡éŸ³æ•ˆ
+Mix_Chunk* shoot_sound1 = nullptr; //å°„å‡»éŸ³æ•ˆ
+Mix_Chunk* shoot_sound2 = nullptr; //å°„å‡»éŸ³æ•ˆ
+Mix_Chunk* clear_music = nullptr; //æ¸…é™¤æˆ¿é—´éŸ³æ•ˆ
+Mix_Chunk* monster_death = nullptr; //æ€ªç‰©æ­»äº¡éŸ³æ•ˆ
+Mix_Chunk* monster_swarm = nullptr; //æ€ªç‰©éŸ³æ•ˆ
 
-// ÊµÏÖÒôÆµ²¥·Åº¯Êı
+// å®ç°éŸ³é¢‘æ’­æ”¾å‡½æ•°
 void playOpeningVideoSound() { opening_video_sound = Mix_LoadMUS("ISAAC/Sounds/openingvideo.wav"); }
 void playMainMusic() { main_music = Mix_LoadMUS("ISAAC/Sounds/burning basement.mp3"); }
 void playTitleScreenSound() { title_screen_sound = Mix_LoadMUS("ISAAC/Sounds/title screen.mp3"); }
@@ -66,7 +66,7 @@ void cleanupAudio()
     Mix_CloseAudio();
 }
 
-/* ¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª ÊÓÆµ ¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª */
+/* â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” è§†é¢‘ â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
 void playVideo(const char* videoPath, SDL_Renderer* renderer)
 {
     avformat_network_init();
@@ -172,7 +172,7 @@ void playVideo(const char* videoPath, SDL_Renderer* renderer)
             }
         }
         av_packet_unref(packet);
-        SDL_Delay(16); // ¿ØÖÆÖ¡ÂÊ
+        SDL_Delay(16); // æ§åˆ¶å¸§ç‡
     }
 
     av_frame_free(&frame);

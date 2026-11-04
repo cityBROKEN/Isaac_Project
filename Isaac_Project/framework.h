@@ -19,10 +19,10 @@
 
 
 //SDL头文件
-#include <../include/SDL2/SDL.h>
-#include <../include/SDL2/SDL_image.h>
-#include <../include/SDL2/SDL_mixer.h>
-#include <../include/SDL2/SDL_ttf.h>
+#include <SDL3/SDL.h>
+#include <SDL3_image/SDL_image.h>
+#include <SDL3_mixer/SDL_mixer.h>
+#include <SDL3_ttf/SDL_ttf.h>
 
 //ffmpeg头文件
 #ifdef __cplusplus
