@@ -1,0 +1,12 @@
+# M1-4: shared text conventions for the solution
+root = true
+
+[*]
+charset = utf-8-bom
+end_of_line = crlf
+indent_style = tab
+insert_final_newline = true
+
+# docs are committed as UTF-8 without BOM
+[*.md]
+charset = utf-8

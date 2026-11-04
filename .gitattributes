@@ -61,3 +61,16 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+###############################################################################
+# M1-4: explicit source line endings and binary asset declarations
+###############################################################################
+*.cpp     text eol=crlf
+*.h       text eol=crlf
+*.vcxproj text eol=crlf
+
+*.png binary
+*.wav binary
+*.mp3 binary
+*.ogg binary
+*.mp4 binary
