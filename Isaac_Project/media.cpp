@@ -1,69 +1,141 @@
 ﻿#include "media.h"
 
+// M3: SDL3_mixer global objects and persistent tracks
+MIX_Mixer* audioMixer = nullptr;
+MIX_Track* bgmTrack = nullptr;
+MIX_Track* hurtGruntTrack = nullptr;
+MIX_Track* deathGruntTrack = nullptr;
+MIX_Track* shootSound1Track = nullptr;
+MIX_Track* shootSound2Track = nullptr;
+MIX_Track* clearMusicTrack = nullptr;
+MIX_Track* monsterDeathTrack = nullptr;
+MIX_Track* monsterSwarmTrack = nullptr;
+
+
 /* —————————— 声音 —————————— */
 // 定义音乐和音效全局变量
-Mix_Music* main_music = nullptr; //主音乐
-Mix_Music* opening_video_sound = nullptr; //开场音乐
-Mix_Music* title_screen_sound = nullptr; //标题音乐
-Mix_Music* ending_sound = nullptr; //结束音乐
+MIX_Audio* main_music = nullptr; //主音乐
+MIX_Audio* opening_video_sound = nullptr; //开场音乐
+MIX_Audio* title_screen_sound = nullptr; //标题音乐
+MIX_Audio* ending_sound = nullptr; //结束音乐
 
-Mix_Chunk* hurt_grunt = nullptr; //受伤音效
-Mix_Chunk* death_grunt = nullptr; //死亡音效
-Mix_Chunk* shoot_sound1 = nullptr; //射击音效
-Mix_Chunk* shoot_sound2 = nullptr; //射击音效
-Mix_Chunk* clear_music = nullptr; //清除房间音效
-Mix_Chunk* monster_death = nullptr; //怪物死亡音效
-Mix_Chunk* monster_swarm = nullptr; //怪物音效
+MIX_Audio* hurt_grunt = nullptr; //受伤音效
+MIX_Audio* death_grunt = nullptr; //死亡音效
+MIX_Audio* shoot_sound1 = nullptr; //射击音效
+MIX_Audio* shoot_sound2 = nullptr; //射击音效
+MIX_Audio* clear_music = nullptr; //清除房间音效
+MIX_Audio* monster_death = nullptr; //怪物死亡音效
+MIX_Audio* monster_swarm = nullptr; //怪物音效
 
 // 实现音频播放函数
-void playOpeningVideoSound() { opening_video_sound = Mix_LoadMUS("ISAAC/Sounds/openingvideo.wav"); }
-void playMainMusic() { main_music = Mix_LoadMUS("ISAAC/Sounds/burning basement.mp3"); }
-void playTitleScreenSound() { title_screen_sound = Mix_LoadMUS("ISAAC/Sounds/title screen.mp3"); }
-void playEndingSound() { ending_sound = Mix_LoadMUS("ISAAC/Sounds/you died.ogg"); }
-void playHurtGrunt() { hurt_grunt = Mix_LoadWAV("ISAAC/Sounds/hurt grunt.wav"); }
-void playDeathGrunt() { death_grunt = Mix_LoadWAV("ISAAC/Sounds/isaac dies new.wav"); }
-void playShootSound1() { shoot_sound1 = Mix_LoadWAV("ISAAC/Sounds/tear fire 4.wav"); }
-void playShootSound2() { shoot_sound2 = Mix_LoadWAV("ISAAC/Sounds/tear fire 5.wav"); }
-void playClearMusic() { clear_music = Mix_LoadWAV("ISAAC/Sounds/danglewhistle.wav"); }
-void playMonsterDeath() { monster_death = Mix_LoadWAV("ISAAC/Sounds/death burst small 3.wav"); }
-void playMonsterSwarm() { monster_swarm = Mix_LoadWAV("ISAAC/Sounds/insect swarm.wav"); }
+void playOpeningVideoSound() { opening_video_sound = MIX_LoadAudio(audioMixer, "ISAAC/Sounds/openingvideo.wav", false); }
+void playMainMusic() { main_music = MIX_LoadAudio(audioMixer, "ISAAC/Sounds/burning basement.mp3", false); }
+void playTitleScreenSound() { title_screen_sound = MIX_LoadAudio(audioMixer, "ISAAC/Sounds/title screen.mp3", false); }
+void playEndingSound() { ending_sound = MIX_LoadAudio(audioMixer, "ISAAC/Sounds/you died.ogg", false); }
+void playHurtGrunt() { hurt_grunt = MIX_LoadAudio(audioMixer, "ISAAC/Sounds/hurt grunt.wav", true); }
+void playDeathGrunt() { death_grunt = MIX_LoadAudio(audioMixer, "ISAAC/Sounds/isaac dies new.wav", true); }
+void playShootSound1() { shoot_sound1 = MIX_LoadAudio(audioMixer, "ISAAC/Sounds/tear fire 4.wav", true); }
+void playShootSound2() { shoot_sound2 = MIX_LoadAudio(audioMixer, "ISAAC/Sounds/tear fire 5.wav", true); }
+void playClearMusic() { clear_music = MIX_LoadAudio(audioMixer, "ISAAC/Sounds/danglewhistle.wav", true); }
+void playMonsterDeath() { monster_death = MIX_LoadAudio(audioMixer, "ISAAC/Sounds/death burst small 3.wav", true); }
+void playMonsterSwarm() { monster_swarm = MIX_LoadAudio(audioMixer, "ISAAC/Sounds/insect swarm.wav", true); }
 
 void modifyVolume()
 {
-    Mix_VolumeMusic(30);
-    Mix_VolumeChunk(shoot_sound1, 100);
-    Mix_VolumeChunk(shoot_sound2, 100);
-    Mix_VolumeChunk(hurt_grunt, 128);
-    Mix_VolumeChunk(death_grunt, 80);
-    Mix_VolumeChunk(clear_music, 128);
-    Mix_VolumeChunk(monster_death, 100);
-    Mix_VolumeChunk(monster_swarm, 0);
+    // SDL2 music volume only affected music; a mixer-wide gain would also mute SFX.
+    MIX_SetTrackGain(bgmTrack, 30.0f / 128.0f);
+    MIX_SetTrackGain(shootSound1Track, 100.0f / 128.0f);
+    MIX_SetTrackGain(shootSound2Track, 100.0f / 128.0f);
+    MIX_SetTrackGain(hurtGruntTrack, 128.0f / 128.0f);
+    MIX_SetTrackGain(deathGruntTrack, 80.0f / 128.0f);
+    MIX_SetTrackGain(clearMusicTrack, 128.0f / 128.0f);
+    MIX_SetTrackGain(monsterDeathTrack, 100.0f / 128.0f);
+    MIX_SetTrackGain(monsterSwarmTrack, 0.0f / 128.0f);
 }
 
 bool initAudio()
 {
-    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0)
+    if (!MIX_Init())
     {
-        SDL_Log("SDL_mixer could not initialize! SDL_mixer Error: %s", Mix_GetError());
+        SDL_Log("SDL_mixer could not initialize! SDL_mixer Error: %s", SDL_GetError());
         return false;
     }
+
+    SDL_AudioSpec spec = {};
+    spec.format = SDL_AUDIO_S16;
+    spec.channels = 2;
+    spec.freq = 44100;
+    audioMixer = MIX_CreateMixerDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec);
+    if (!audioMixer)
+    {
+        SDL_Log("SDL_mixer could not create mixer device! SDL_mixer Error: %s", SDL_GetError());
+        return false;
+    }
+
+    bgmTrack = MIX_CreateTrack(audioMixer);
+    hurtGruntTrack = MIX_CreateTrack(audioMixer);
+    deathGruntTrack = MIX_CreateTrack(audioMixer);
+    shootSound1Track = MIX_CreateTrack(audioMixer);
+    shootSound2Track = MIX_CreateTrack(audioMixer);
+    clearMusicTrack = MIX_CreateTrack(audioMixer);
+    monsterDeathTrack = MIX_CreateTrack(audioMixer);
+    monsterSwarmTrack = MIX_CreateTrack(audioMixer);
     return true;
 }
 
 void cleanupAudio()
 {
-    Mix_FreeMusic(main_music);
-    Mix_FreeMusic(opening_video_sound);
-    Mix_FreeMusic(title_screen_sound);
-    Mix_FreeMusic(ending_sound);
-    Mix_FreeChunk(death_grunt);
-    Mix_FreeChunk(hurt_grunt);
-    Mix_FreeChunk(shoot_sound1);
-    Mix_FreeChunk(shoot_sound2);
-    Mix_FreeChunk(clear_music);
-    Mix_FreeChunk(monster_death);
-    Mix_FreeChunk(monster_swarm);
-    Mix_CloseAudio();
+    MIX_DestroyAudio(main_music);
+    MIX_DestroyAudio(opening_video_sound);
+    MIX_DestroyAudio(title_screen_sound);
+    MIX_DestroyAudio(ending_sound);
+    MIX_DestroyAudio(death_grunt);
+    MIX_DestroyAudio(hurt_grunt);
+    MIX_DestroyAudio(shoot_sound1);
+    MIX_DestroyAudio(shoot_sound2);
+    MIX_DestroyAudio(clear_music);
+    MIX_DestroyAudio(monster_death);
+    MIX_DestroyAudio(monster_swarm);
+    MIX_DestroyTrack(bgmTrack);
+    MIX_DestroyTrack(hurtGruntTrack);
+    MIX_DestroyTrack(deathGruntTrack);
+    MIX_DestroyTrack(shootSound1Track);
+    MIX_DestroyTrack(shootSound2Track);
+    MIX_DestroyTrack(clearMusicTrack);
+    MIX_DestroyTrack(monsterDeathTrack);
+    MIX_DestroyTrack(monsterSwarmTrack);
+    MIX_DestroyMixer(audioMixer);
+    MIX_Quit();
+}
+
+
+// M3: BGM uses a persistent looping track, matching the SDL2 looped music call
+void playMusic(MIX_Audio* audio)
+{
+    if (!bgmTrack) return;
+    MIX_SetTrackAudio(bgmTrack, audio);
+    MIX_SetTrackLoops(bgmTrack, -1);
+    MIX_PlayTrack(bgmTrack, 0);
+}
+
+// M3: SFX use per-effect tracks so SDL2 per-chunk volumes stay per-effect
+void playSound(MIX_Audio* audio)
+{
+    MIX_Track* track = nullptr;
+    if (audio == hurt_grunt) track = hurtGruntTrack;
+    else if (audio == death_grunt) track = deathGruntTrack;
+    else if (audio == shoot_sound1) track = shootSound1Track;
+    else if (audio == shoot_sound2) track = shootSound2Track;
+    else if (audio == clear_music) track = clearMusicTrack;
+    else if (audio == monster_death) track = monsterDeathTrack;
+    else if (audio == monster_swarm) track = monsterSwarmTrack;
+    if (!track)
+    {
+        MIX_PlayAudio(audioMixer, audio);
+        return;
+    }
+    MIX_SetTrackAudio(track, audio);
+    MIX_PlayTrack(track, 0);
 }
 
 /* —————————— 视频 —————————— */
@@ -144,11 +216,11 @@ void playVideo(const char* videoPath, SDL_Renderer* renderer)
     {
         while (SDL_PollEvent(&event))
         {
-            if (event.type == SDL_QUIT)
+            if (event.type == SDL_EVENT_QUIT)
             {
                 isPlaying = false;
             }
-            else if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_SPACE)
+            else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_SPACE)
             {
                 isPlaying = false;
             }
@@ -166,7 +238,7 @@ void playVideo(const char* videoPath, SDL_Renderer* renderer)
                         linesize[2]);
 
                     SDL_RenderClear(renderer);
-                    SDL_RenderCopy(renderer, texture, nullptr, &videoRect);
+                    renderTexture(renderer, texture, nullptr, &videoRect);
                     SDL_RenderPresent(renderer);
                 }
             }

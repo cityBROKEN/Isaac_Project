@@ -84,6 +84,7 @@
   <ItemGroup>
     <ClInclude Include="font.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="SDL3Compat.h" />
     <ClInclude Include="media.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -24,6 +24,9 @@
 #include <SDL3_mixer/SDL_mixer.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
+// M2-2: integer SDL_Rect -> SDL_FRect adapters
+#include "SDL3Compat.h"
+
 //ffmpeg头文件
 #ifdef __cplusplus
 extern "C" {

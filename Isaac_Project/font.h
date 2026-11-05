@@ -26,10 +26,10 @@ bool loadFont(const std::string& fontPath, SDL_Renderer* renderer, int fontSize 
 	if (extension == "ttf")
 	{
 		// 使用 TTF 字体
-		ttfFont = TTF_OpenFont(fontPath.c_str(), fontSize);
+		ttfFont = TTF_OpenFont(fontPath.c_str(), static_cast<float>(fontSize));
 		if (!ttfFont)
 		{
-			SDL_Log("Failed to load TTF font: %s\n", TTF_GetError());
+			SDL_Log("Failed to load TTF font: %s\n", SDL_GetError());
 			return false;
 		}
 		return true;
@@ -42,11 +42,11 @@ bool loadFont(const std::string& fontPath, SDL_Renderer* renderer, int fontSize 
 		SDL_Surface* surface = IMG_Load(texturePath.c_str());
 		if (!surface)
 		{
-			SDL_Log("Failed to load font texture: %s", IMG_GetError());
+			SDL_Log("Failed to load font texture: %s", SDL_GetError());
 			return false;
 		}
 		fontTexture = SDL_CreateTextureFromSurface(renderer, surface);
-		SDL_FreeSurface(surface);
+		SDL_DestroySurface(surface);
 		if (!fontTexture)
 		{
 			SDL_Log("Failed to create font texture: %s", SDL_GetError());
@@ -90,15 +90,15 @@ void renderText(SDL_Renderer* renderer, const std::string& text, int x, int y, S
 	if (ttfFont)
 	{
 		// 使用 TTF 字体渲染
-		SDL_Surface* textSurface = TTF_RenderText_Blended(ttfFont, text.c_str(), color);
+		SDL_Surface* textSurface = TTF_RenderText_Blended(ttfFont, text.c_str(), 0, color);
 		if (!textSurface)
 		{
-			SDL_Log("Unable to render text surface: %s\n", TTF_GetError());
+			SDL_Log("Unable to render text surface: %s\n", SDL_GetError());
 			return;
 		}
 
 		SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
-		SDL_FreeSurface(textSurface);
+		SDL_DestroySurface(textSurface);
 		if (!textTexture)
 		{
 			SDL_Log("Unable to create texture from rendered text: %s\n", SDL_GetError());
@@ -108,8 +108,8 @@ void renderText(SDL_Renderer* renderer, const std::string& text, int x, int y, S
 		SDL_Rect dstRect;
 		dstRect.x = x;
 		dstRect.y = y;
-		SDL_QueryTexture(textTexture, nullptr, nullptr, &dstRect.w, &dstRect.h);
-		SDL_RenderCopy(renderer, textTexture, nullptr, &dstRect);
+		queryTextureSize(textTexture, &dstRect.w, &dstRect.h);
+		renderTexture(renderer, textTexture, nullptr, &dstRect);
 
 		SDL_DestroyTexture(textTexture);
 	}
@@ -125,7 +125,7 @@ void renderText(SDL_Renderer* renderer, const std::string& text, int x, int y, S
 			{
 				Character ch = Characters[ascii];
 				SDL_Rect destRect = {cursorX + ch.xoffset, cursorY + ch.yoffset, ch.srcRect.w, ch.srcRect.h};
-				SDL_RenderCopy(renderer, ch.texture, &ch.srcRect, &destRect);
+				renderTexture(renderer, ch.texture, &ch.srcRect, &destRect);
 				cursorX += ch.xadvance;
 			}
 		}

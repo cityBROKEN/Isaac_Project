@@ -100,8 +100,8 @@ public:
 	SDL_Rect bumpbox; //碰撞箱
 	// 无敌状态相关变量
 	bool isInvincible; // 是否处于无敌状态
-	Uint32 invincibleStartTime; // 无敌开始时间
-	Uint32 invincibleDuration; // 无敌持续时间（毫秒）
+	Uint64 invincibleStartTime; // 无敌开始时间
+	Uint64 invincibleDuration; // 无敌持续时间（毫秒）
 	bool isAlive = true; //角色是否存活
 	PLAYER(int x, int y, int w, int h, double HP, double speed, double damage, double tear, double shootspeed,
 	       double range)
@@ -153,7 +153,7 @@ public:
 	DIRECTION direction; //子弹飞行方向
 	bool isAlive = true; //子弹是否存活
 	bool isBursting = false; //子弹是否正在爆裂
-	Uint32 burstStartTime = 0; //爆裂动画开始时间
+	Uint64 burstStartTime = 0; //爆裂动画开始时间
 
 	BULLET(int x, int y, double speed, double damage, double range, DIRECTION direction)
 	{
@@ -241,12 +241,12 @@ public:
 		if (random_number == 1)
 		{
 			playShootSound1();
-			Mix_PlayChannel(-1, shoot_sound1, 0);
+			playSound(shoot_sound1);
 		}
 		else
 		{
 			playShootSound2();
-			Mix_PlayChannel(-1, shoot_sound2, 0);
+			playSound(shoot_sound2);
 		}
 	}
 
@@ -296,14 +296,14 @@ public:
 	SDL_Rect bumpbox; //碰撞箱
 	SDL_Rect spriteRect; //贴图矩形
 	State state; //怪物状态
-	Uint32 lastMoveTime; // 上次移动的时间
-	Uint32 moveInterval; // 移动间隔
+	Uint64 lastMoveTime; // 上次移动的时间
+	Uint64 moveInterval; // 移动间隔
 	bool isAlive = true; //怪物是否存活
 	bool isDying = false; // 是否正在死亡
-	Uint32 currentFrame; // 当前动画帧
-	Uint32 lastFrameTime; // 上次动画帧时间
-	Uint32 deathStartTime = 0; // 记录死亡动画开始时间
-	Uint32 deathDuration = 550; // 死亡动画持续时间（毫秒）
+	Uint64 currentFrame; // 当前动画帧
+	Uint64 lastFrameTime; // 上次动画帧时间
+	Uint64 deathStartTime = 0; // 记录死亡动画开始时间
+	Uint64 deathDuration = 550; // 死亡动画持续时间（毫秒）
 	// 怪物行为函数
 	// 怪物移动
 	void move(const PLAYER& player)
@@ -444,7 +444,7 @@ public:
 			vy = 0;
 			// 播放死亡音效
 			playMonsterDeath();
-			Mix_PlayChannel(-1, monster_death, 0);
+			playSound(monster_death);
 		}
 	}
 };
@@ -454,9 +454,9 @@ class FLY : public MONSTER
 {
 public:
 	friend class PLAYER;
-	Uint32 lastShootTime; // 上次发射子弹的时间
-	Uint32 shootInterval; // 攻击间隔
-	Uint32 attackStartTime; // 攻击开始时间
+	Uint64 lastShootTime; // 上次发射子弹的时间
+	Uint64 shootInterval; // 攻击间隔
+	Uint64 attackStartTime; // 攻击开始时间
 	bool isReadyToAttack; // 是否准备好再次攻击
 	bool hasShot; // 是否已经发射过子弹    
 
@@ -535,7 +535,7 @@ public:
 	virtual void shoot(const PLAYER& player)
 	{
 		// 发射子弹
-		Uint32 currentTime = SDL_GetTicks();
+		Uint64 currentTime = SDL_GetTicks();
 		if (isReadyToAttack)
 		{
 			double angle = atan2(player.y - y, player.x - x);
@@ -563,8 +563,8 @@ public:
 	void updateDeathAnimation()
 	{
 		// 根据死亡时间计算当前帧（假设死亡动画有 11 帧，每帧持续 deathDuration / 11 毫秒）
-		Uint32 currentTime = SDL_GetTicks();
-		Uint32 elapsed = currentTime - deathStartTime;
+		Uint64 currentTime = SDL_GetTicks();
+		Uint64 elapsed = currentTime - deathStartTime;
 		int totalFrames = 11;
 		int frameDuration = deathDuration / totalFrames;
 		currentFrame = elapsed / frameDuration;
@@ -668,15 +668,15 @@ public:
 			}
 			// 播放死亡音效
 			playMonsterDeath();
-			Mix_PlayChannel(-1, monster_death, 0);
+			playSound(monster_death);
 		}
 	}
 
 	void updateDeathAnimation()
 	{
 		// 根据死亡时间计算当前帧（假设死亡动画有 11 帧，每帧持续 deathDuration / 11 毫秒）
-		Uint32 currentTime = SDL_GetTicks();
-		Uint32 elapsed = currentTime - deathStartTime;
+		Uint64 currentTime = SDL_GetTicks();
+		Uint64 elapsed = currentTime - deathStartTime;
 		int totalFrames = 11;
 		int frameDuration = deathDuration / totalFrames;
 		currentFrame = elapsed / frameDuration;
@@ -730,13 +730,13 @@ public:
 			Flies.push_back(FLY(x, y + 10));
 			// 播放死亡音效
 			playMonsterDeath();
-			Mix_PlayChannel(-1, monster_death, 0);
+			playSound(monster_death);
 		}
 	}
 
 	void shoot(const PLAYER& player) override
 	{
-		Uint32 currentTime = SDL_GetTicks();
+		Uint64 currentTime = SDL_GetTicks();
 		if (isReadyToAttack)
 		{
 			double angle = atan2(player.y - bumpbox.y, player.x - bumpbox.x);
@@ -762,131 +762,131 @@ SUPERFLY superfly_standard(100, 100);
 void backMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BackMotions, SDL_Rect& headrect, SDL_Rect& bodyrect)
 {
 	static int currentFrame = 0;
-	static Uint32 lastFrameTime = SDL_GetTicks();
-	Uint32 currentTime = SDL_GetTicks();
+	static Uint64 lastFrameTime = SDL_GetTicks();
+	Uint64 currentTime = SDL_GetTicks();
 	if (currentTime - lastFrameTime >= 100)
 	{
 		currentFrame = (currentFrame + 1) % 8;
 		lastFrameTime = currentTime;
 	}
-	SDL_RenderCopy(renderer, BackMotions[currentFrame], nullptr, &bodyrect);
+	renderTexture(renderer, BackMotions[currentFrame], nullptr, &bodyrect);
 }
 
 // 人物行走正面动画
 void frontMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FrontMotions, SDL_Rect& headrect, SDL_Rect& bodyrect)
 {
 	static int currentFrame = 0;
-	static Uint32 lastFrameTime = SDL_GetTicks();
-	Uint32 currentTime = SDL_GetTicks();
+	static Uint64 lastFrameTime = SDL_GetTicks();
+	Uint64 currentTime = SDL_GetTicks();
 	if (currentTime - lastFrameTime >= 100)
 	{
 		currentFrame = (currentFrame + 1) % 12;
 		lastFrameTime = currentTime;
 	}
-	SDL_RenderCopy(renderer, FrontMotions[currentFrame], nullptr, &bodyrect);
+	renderTexture(renderer, FrontMotions[currentFrame], nullptr, &bodyrect);
 }
 
 // 人物行走右面动画
 void rightMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& RightMotions, SDL_Rect& headrect, SDL_Rect& bodyrect)
 {
 	static int currentFrame = 0;
-	static Uint32 lastFrameTime = SDL_GetTicks();
-	Uint32 currentTime = SDL_GetTicks();
+	static Uint64 lastFrameTime = SDL_GetTicks();
+	Uint64 currentTime = SDL_GetTicks();
 	if (currentTime - lastFrameTime >= 100)
 	{
 		currentFrame = (currentFrame + 1) % 10;
 		lastFrameTime = currentTime;
 	}
-	SDL_RenderCopy(renderer, RightMotions[currentFrame], nullptr, &bodyrect);
+	renderTexture(renderer, RightMotions[currentFrame], nullptr, &bodyrect);
 }
 
 // 人物行走左面动画
 void leftMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& LeftMotions, SDL_Rect& headrect, SDL_Rect& bodyrect)
 {
 	static int currentFrame = 0;
-	static Uint32 lastFrameTime = SDL_GetTicks();
-	Uint32 currentTime = SDL_GetTicks();
+	static Uint64 lastFrameTime = SDL_GetTicks();
+	Uint64 currentTime = SDL_GetTicks();
 	if (currentTime - lastFrameTime >= 100)
 	{
 		currentFrame = (currentFrame + 1) % 10;
 		lastFrameTime = currentTime;
 	}
-	SDL_RenderCopy(renderer, LeftMotions[currentFrame], nullptr, &bodyrect);
+	renderTexture(renderer, LeftMotions[currentFrame], nullptr, &bodyrect);
 }
 
 // 人物向上射击动画
 void shootUpMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BackHeadMotions, SDL_Rect& headrect)
 {
 	static int currentFrame = 0;
-	static Uint32 lastFrameTime = 0;
-	Uint32 currentTime = SDL_GetTicks();
+	static Uint64 lastFrameTime = 0;
+	Uint64 currentTime = SDL_GetTicks();
 	// 每200ms切换帧，按下按键时重置
 	if (currentTime - lastFrameTime >= 200 || currentFrame == 0)
 	{
 		currentFrame = (currentFrame + 1) % BackHeadMotions.size();
 		lastFrameTime = currentTime;
 	}
-	SDL_RenderCopy(renderer, BackHeadMotions[currentFrame], nullptr, &headrect);
+	renderTexture(renderer, BackHeadMotions[currentFrame], nullptr, &headrect);
 }
 
 // 人物向左射击动画
 void shootLeftMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& LeftHeadMotions, SDL_Rect& headrect)
 {
 	static int currentFrame = 0;
-	static Uint32 lastFrameTime = 0;
-	Uint32 currentTime = SDL_GetTicks();
+	static Uint64 lastFrameTime = 0;
+	Uint64 currentTime = SDL_GetTicks();
 	// 每200ms切换帧，按下按键时重置
 	if (currentTime - lastFrameTime >= 200 || currentFrame == 0)
 	{
 		currentFrame = (currentFrame + 1) % LeftHeadMotions.size();
 		lastFrameTime = currentTime;
 	}
-	SDL_RenderCopy(renderer, LeftHeadMotions[currentFrame], nullptr, &headrect);
+	renderTexture(renderer, LeftHeadMotions[currentFrame], nullptr, &headrect);
 }
 
 // 人物向下射击动画
 void shootDownMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FrontHeadMotions, SDL_Rect& headrect)
 {
 	static int currentFrame = 0;
-	static Uint32 lastFrameTime = 0;
-	Uint32 currentTime = SDL_GetTicks();
+	static Uint64 lastFrameTime = 0;
+	Uint64 currentTime = SDL_GetTicks();
 	// 每200ms切换帧，按下按键时重置
 	if (currentTime - lastFrameTime >= 200 || currentFrame == 0)
 	{
 		currentFrame = (currentFrame + 1) % FrontHeadMotions.size();
 		lastFrameTime = currentTime;
 	}
-	SDL_RenderCopy(renderer, FrontHeadMotions[currentFrame], nullptr, &headrect);
+	renderTexture(renderer, FrontHeadMotions[currentFrame], nullptr, &headrect);
 }
 
 // 人物向右射击动画
 void shootRightMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& RightHeadMotions, SDL_Rect& headrect)
 {
 	static int currentFrame = 0;
-	static Uint32 lastFrameTime = 0;
-	Uint32 currentTime = SDL_GetTicks();
+	static Uint64 lastFrameTime = 0;
+	Uint64 currentTime = SDL_GetTicks();
 	// 每200ms切换帧，按下按键时重置
 	if (currentTime - lastFrameTime >= 200 || currentFrame == 0)
 	{
 		currentFrame = (currentFrame + 1) % RightHeadMotions.size();
 		lastFrameTime = currentTime;
 	}
-	SDL_RenderCopy(renderer, RightHeadMotions[currentFrame], nullptr, &headrect);
+	renderTexture(renderer, RightHeadMotions[currentFrame], nullptr, &headrect);
 }
 
 // 人物泪弹爆裂动画
 void bulletBurstMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BurstMotions, SDL_Rect& bulletrect)
 {
 	static int currentFrame = 0;
-	static Uint32 lastFrameTime = 0;
-	Uint32 currentTime = SDL_GetTicks();
+	static Uint64 lastFrameTime = 0;
+	Uint64 currentTime = SDL_GetTicks();
 	// 每10ms切换帧，按下按键时重置
 	if (currentTime - lastFrameTime >= 10 || currentFrame == 0)
 	{
 		currentFrame = (currentFrame + 1) % BurstMotions.size();
 		lastFrameTime = currentTime;
 	}
-	SDL_RenderCopy(renderer, BurstMotions[currentFrame], nullptr, &bulletrect);
+	renderTexture(renderer, BurstMotions[currentFrame], nullptr, &bulletrect);
 }
 
 // 苍蝇怪常态动画
@@ -895,25 +895,25 @@ void flyIdleMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotions, vec
 {
 	if (player.x >= fly.x)
 	{
-		Uint32 currentTime = SDL_GetTicks();
+		Uint64 currentTime = SDL_GetTicks();
 		// 每100ms切换帧
 		if (currentTime - fly.lastFrameTime >= 100)
 		{
 			fly.currentFrame = (fly.currentFrame + 1) % 2;
 			fly.lastFrameTime = currentTime;
 		}
-		SDL_RenderCopy(renderer, FlyMotions[fly.currentFrame], nullptr, &flyrect);
+		renderTexture(renderer, FlyMotions[fly.currentFrame], nullptr, &flyrect);
 	}
 	else
 	{
-		Uint32 currentTime = SDL_GetTicks();
+		Uint64 currentTime = SDL_GetTicks();
 		// 每100ms切换帧
 		if (currentTime - fly.lastFrameTime >= 100)
 		{
 			fly.currentFrame = (fly.currentFrame + 1) % 2;
 			fly.lastFrameTime = currentTime;
 		}
-		SDL_RenderCopy(renderer, _FlyMotions[fly.currentFrame], nullptr, &flyrect);
+		renderTexture(renderer, _FlyMotions[fly.currentFrame], nullptr, &flyrect);
 	}
 }
 
@@ -923,14 +923,14 @@ void flyAttackMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotions, v
 {
 	if (player.x >= fly.x)
 	{
-		Uint32 currentTime = SDL_GetTicks();
+		Uint64 currentTime = SDL_GetTicks();
 		// 每50ms切换帧
 		if (currentTime - fly.lastFrameTime >= 40)
 		{
 			fly.currentFrame = (fly.currentFrame + 1) % 16;
 			fly.lastFrameTime = currentTime;
 		}
-		SDL_RenderCopy(renderer, FlyMotions[fly.currentFrame], nullptr, &flyrect);
+		renderTexture(renderer, FlyMotions[fly.currentFrame], nullptr, &flyrect);
 		// 当动画帧为第9帧时发射子弹
 		if (fly.currentFrame == 8 && !fly.hasShot)
 		{
@@ -948,14 +948,14 @@ void flyAttackMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotions, v
 	}
 	else
 	{
-		Uint32 currentTime = SDL_GetTicks();
+		Uint64 currentTime = SDL_GetTicks();
 		// 每50ms切换帧
 		if (currentTime - fly.lastFrameTime >= 40)
 		{
 			fly.currentFrame = (fly.currentFrame + 1) % 16;
 			fly.lastFrameTime = currentTime;
 		}
-		SDL_RenderCopy(renderer, _FlyMotions[fly.currentFrame], nullptr, &flyrect);
+		renderTexture(renderer, _FlyMotions[fly.currentFrame], nullptr, &flyrect);
 		// 当动画帧为第9帧时发射子弹
 		if (fly.currentFrame == 8 && !fly.hasShot)
 		{
@@ -982,20 +982,20 @@ void flyDeadMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyDeadMotions,
 	{
 		fly.currentFrame = totalFrames - 1;
 	}
-	SDL_RenderCopy(renderer, FlyDeadMotions[fly.currentFrame], nullptr, &flyrect);
+	renderTexture(renderer, FlyDeadMotions[fly.currentFrame], nullptr, &flyrect);
 }
 
 // 大苍蝇怪常态动画
 void bigFlyMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BigFlyMotions, SDL_Rect& bigflyrect, BIGFLY& bigfly)
 {
-	Uint32 currentTime = SDL_GetTicks();
+	Uint64 currentTime = SDL_GetTicks();
 	// 每80ms切换帧
 	if (currentTime - bigfly.lastFrameTime >= 80)
 	{
 		bigfly.currentFrame = (bigfly.currentFrame + 1) % 2;
 		bigfly.lastFrameTime = currentTime;
 	}
-	SDL_RenderCopy(renderer, BigFlyMotions[bigfly.currentFrame], nullptr, &bigflyrect);
+	renderTexture(renderer, BigFlyMotions[bigfly.currentFrame], nullptr, &bigflyrect);
 }
 
 // 大苍蝇怪死亡动画
@@ -1008,7 +1008,7 @@ void bigFlyDeadMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BigFlyDeadMo
 	{
 		bigfly.currentFrame = totalFrames - 1;
 	}
-	SDL_RenderCopy(renderer, BigFlyDeadMotions[bigfly.currentFrame], nullptr, &bigflyrect);
+	renderTexture(renderer, BigFlyDeadMotions[bigfly.currentFrame], nullptr, &bigflyrect);
 }
 
 // 超级苍蝇怪常态动画，与苍蝇怪相同，只是大小不同，3倍
@@ -1017,25 +1017,25 @@ void superFlyIdleMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotions
 {
 	if (player.x >= superfly.x)
 	{
-		Uint32 currentTime = SDL_GetTicks();
+		Uint64 currentTime = SDL_GetTicks();
 		// 每100ms切换帧
 		if (currentTime - superfly.lastFrameTime >= 100)
 		{
 			superfly.currentFrame = (superfly.currentFrame + 1) % 2;
 			superfly.lastFrameTime = currentTime;
 		}
-		SDL_RenderCopy(renderer, FlyMotions[superfly.currentFrame], nullptr, &superflyrect);
+		renderTexture(renderer, FlyMotions[superfly.currentFrame], nullptr, &superflyrect);
 	}
 	else
 	{
-		Uint32 currentTime = SDL_GetTicks();
+		Uint64 currentTime = SDL_GetTicks();
 		// 每100ms切换帧
 		if (currentTime - superfly.lastFrameTime >= 100)
 		{
 			superfly.currentFrame = (superfly.currentFrame + 1) % 2;
 			superfly.lastFrameTime = currentTime;
 		}
-		SDL_RenderCopy(renderer, _FlyMotions[superfly.currentFrame], nullptr, &superflyrect);
+		renderTexture(renderer, _FlyMotions[superfly.currentFrame], nullptr, &superflyrect);
 	}
 }
 
@@ -1049,7 +1049,7 @@ void superFlyDeadMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyDeadMot
 	{
 		superfly.currentFrame = totalFrames - 1;
 	}
-	SDL_RenderCopy(renderer, FlyDeadMotions[superfly.currentFrame], nullptr, &superflyrect);
+	renderTexture(renderer, FlyDeadMotions[superfly.currentFrame], nullptr, &superflyrect);
 }
 
 //超级苍蝇怪攻击动画
@@ -1058,14 +1058,14 @@ void superFlyAttackMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotio
 {
 	if (player.x >= superfly.x)
 	{
-		Uint32 currentTime = SDL_GetTicks();
+		Uint64 currentTime = SDL_GetTicks();
 		// 每50ms切换帧
 		if (currentTime - superfly.lastFrameTime >= 40)
 		{
 			superfly.currentFrame = (superfly.currentFrame + 1) % 16;
 			superfly.lastFrameTime = currentTime;
 		}
-		SDL_RenderCopy(renderer, FlyMotions[superfly.currentFrame], nullptr, &superflyrect);
+		renderTexture(renderer, FlyMotions[superfly.currentFrame], nullptr, &superflyrect);
 		// 当动画帧为第9帧时发射子弹
 		if (superfly.currentFrame == 8 && !superfly.hasShot)
 		{
@@ -1083,14 +1083,14 @@ void superFlyAttackMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& FlyMotio
 	}
 	else
 	{
-		Uint32 currentTime = SDL_GetTicks();
+		Uint64 currentTime = SDL_GetTicks();
 		// 每50ms切换帧
 		if (currentTime - superfly.lastFrameTime >= 40)
 		{
 			superfly.currentFrame = (superfly.currentFrame + 1) % 16;
 			superfly.lastFrameTime = currentTime;
 		}
-		SDL_RenderCopy(renderer, _FlyMotions[superfly.currentFrame], nullptr, &superflyrect);
+		renderTexture(renderer, _FlyMotions[superfly.currentFrame], nullptr, &superflyrect);
 		// 当动画帧为第9帧时发射子弹
 		if (superfly.currentFrame == 8 && !superfly.hasShot)
 		{
@@ -1163,7 +1163,7 @@ void switchRoom(SDL_Renderer* renderer, SDL_Texture* newRoomTexture, SDL_Rect& h
 {
 	// 渲染新房间背景
 	SDL_RenderClear(renderer);
-	SDL_RenderCopy(renderer, newRoomTexture, nullptr, nullptr);
+	renderTexture(renderer, newRoomTexture, nullptr, nullptr);
 	SDL_RenderPresent(renderer);
 	// 重置角色位置
 	headrect.x = window_width / 2 - headrect.w / 2;
@@ -1212,22 +1212,22 @@ void processInput(SDL_Event& event, bool& isquit, bool keyStates[8])
 {
 	while (SDL_PollEvent(&event))
 	{
-		if (event.type == SDL_QUIT)
+		if (event.type == SDL_EVENT_QUIT)
 		{
 			isquit = true;
 		}
-		if (event.type == SDL_KEYDOWN)
+		if (event.type == SDL_EVENT_KEY_DOWN)
 		{
-			switch (event.key.keysym.sym)
+			switch (event.key.key)
 			{
 			// 移动按键
-			case SDLK_w: keyStates[0] = true;
+			case SDLK_W: keyStates[0] = true;
 				break;
-			case SDLK_a: keyStates[1] = true;
+			case SDLK_A: keyStates[1] = true;
 				break;
-			case SDLK_s: keyStates[2] = true;
+			case SDLK_S: keyStates[2] = true;
 				break;
-			case SDLK_d: keyStates[3] = true;
+			case SDLK_D: keyStates[3] = true;
 				break;
 			// 攻击按键
 			case SDLK_UP: keyStates[4] = true;
@@ -1243,17 +1243,17 @@ void processInput(SDL_Event& event, bool& isquit, bool keyStates[8])
 				break;
 			}
 		}
-		if (event.type == SDL_KEYUP)
+		if (event.type == SDL_EVENT_KEY_UP)
 		{
-			switch (event.key.keysym.sym)
+			switch (event.key.key)
 			{
-			case SDLK_w: keyStates[0] = false;
+			case SDLK_W: keyStates[0] = false;
 				break;
-			case SDLK_a: keyStates[1] = false;
+			case SDLK_A: keyStates[1] = false;
 				break;
-			case SDLK_s: keyStates[2] = false;
+			case SDLK_S: keyStates[2] = false;
 				break;
-			case SDLK_d: keyStates[3] = false;
+			case SDLK_D: keyStates[3] = false;
 				break;
 			case SDLK_UP: keyStates[4] = false;
 				break;
@@ -1270,9 +1270,9 @@ void processInput(SDL_Event& event, bool& isquit, bool keyStates[8])
 
 //处理射击事件
 void processShooting(bool keyStates[8], Direction& head_direction, SDL_Rect& headrect,
-                     PLAYER& isaac, Uint32& last_shoot_time, bool& is_attacking, Uint32& attack_start_time)
+                     PLAYER& isaac, Uint64& last_shoot_time, bool& is_attacking, Uint64& attack_start_time)
 {
-	Uint32 current_time = SDL_GetTicks(); // 当前时间
+	Uint64 current_time = SDL_GetTicks(); // 当前时间
 	double attack_interval = 1000.0 / isaac.tear; // 攻击间隔
 
 	// 处理射击并触发攻击动画
@@ -1373,7 +1373,7 @@ void updatePlayerPosition(SDL_Rect& headrect, SDL_Rect& bodyrect, const bool key
 	bool collided = false;
 	for (const auto& obstacle : Obstacles)
 	{
-		if (SDL_HasIntersection(&isaac.bumpbox, &obstacle.collisionRect))
+		if (SDL_HasRectIntersection(&isaac.bumpbox, &obstacle.collisionRect))
 		{
 			collided = true;
 			break;
@@ -1395,7 +1395,7 @@ void updatePlayerPosition(SDL_Rect& headrect, SDL_Rect& bodyrect, const bool key
 	}
 
 	// 更新无敌状态的计时
-	Uint32 currentTime = SDL_GetTicks();
+	Uint64 currentTime = SDL_GetTicks();
 	if (isaac.isInvincible && currentTime - isaac.invincibleStartTime >= isaac.invincibleDuration)
 	{
 		isaac.isInvincible = false; // 结束无敌状态
@@ -1415,7 +1415,7 @@ void updatePlayerMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BackMotion
 	if (player.isInvincible)
 	{
 		// 计算闪烁效果，例如每隔 100ms 切换一次可见性
-		Uint32 currentTime = SDL_GetTicks();
+		Uint64 currentTime = SDL_GetTicks();
 		if ((currentTime / 100) % 2 == 0)
 		{
 			// 此时不渲染角色，实现闪烁效果
@@ -1433,7 +1433,7 @@ void updatePlayerMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BackMotion
 		break;
 	case 4: rightMotion(renderer, RightMotions, headrect, bodyrect);
 		break;
-	default: SDL_RenderCopy(renderer, FrontMotions[3], nullptr, &bodyrect);
+	default: renderTexture(renderer, FrontMotions[3], nullptr, &bodyrect);
 		break;
 	}
 
@@ -1459,15 +1459,15 @@ void updatePlayerMotion(SDL_Renderer* renderer, vector<SDL_Texture*>& BackMotion
 		// 默认渲染头部静止状态
 		switch (bodyDirection)
 		{
-		case 1: SDL_RenderCopy(renderer, BackHeadMotions[0], nullptr, &headrect);
+		case 1: renderTexture(renderer, BackHeadMotions[0], nullptr, &headrect);
 			break;
-		case 2: SDL_RenderCopy(renderer, FrontHeadMotions[0], nullptr, &headrect);
+		case 2: renderTexture(renderer, FrontHeadMotions[0], nullptr, &headrect);
 			break;
-		case 3: SDL_RenderCopy(renderer, LeftHeadMotions[0], nullptr, &headrect);
+		case 3: renderTexture(renderer, LeftHeadMotions[0], nullptr, &headrect);
 			break;
-		case 4: SDL_RenderCopy(renderer, RightHeadMotions[0], nullptr, &headrect);
+		case 4: renderTexture(renderer, RightHeadMotions[0], nullptr, &headrect);
 			break;
-		default: SDL_RenderCopy(renderer, FrontHeadMotions[0], nullptr, &headrect);
+		default: renderTexture(renderer, FrontHeadMotions[0], nullptr, &headrect);
 			break;
 		}
 	}
@@ -1494,7 +1494,7 @@ void updateBullets(vector<BULLET>& bullets, int window_width, int window_height,
 			// 检查障碍物
 			for (const auto& obstacle : Obstacles)
 			{
-				if (SDL_HasIntersection(&it->bumpbox, &obstacle.collisionRect))
+				if (SDL_HasRectIntersection(&it->bumpbox, &obstacle.collisionRect))
 				{
 					it->burst();
 					break;
@@ -1515,7 +1515,7 @@ void updateBullets(vector<BULLET>& bullets, int window_width, int window_height,
 						// 如果不在无敌状态
 						player.HP -= it->damage;
 						playHurtGrunt();
-						Mix_PlayChannel(-1, hurt_grunt, 0); //播放受伤音效
+						playSound(hurt_grunt); //播放受伤音效
 						player.isInvincible = true; // 开始无敌状态
 						player.invincibleStartTime = SDL_GetTicks();
 					}
@@ -1584,8 +1584,8 @@ void updateBullets(vector<BULLET>& bullets, int window_width, int window_height,
 		// 如果子弹正在播放爆裂动画，检查动画是否结束
 		if (it->isBursting)
 		{
-			Uint32 currentTime = SDL_GetTicks();
-			Uint32 burstDuration = BurstMotions.size() * 50; // 每帧50ms
+			Uint64 currentTime = SDL_GetTicks();
+			Uint64 burstDuration = BurstMotions.size() * 50; // 每帧50ms
 			if (currentTime - it->burstStartTime >= burstDuration)
 			{
 				// 动画结束，删除子弹
@@ -1614,14 +1614,14 @@ void renderBullets(SDL_Renderer* renderer, const vector<BULLET>& bullets, SDL_Te
 		if (bullet.isBursting)
 		{
 			// 计算当前应显示的爆裂动画帧
-			Uint32 currentTime = SDL_GetTicks();
-			Uint32 elapsedTime = currentTime - bullet.burstStartTime;
+			Uint64 currentTime = SDL_GetTicks();
+			Uint64 elapsedTime = currentTime - bullet.burstStartTime;
 			int frame = (elapsedTime / 50) % BurstMotions.size(); // 每帧50ms
-			SDL_RenderCopy(renderer, BurstMotions[frame], nullptr, &bullet.spriteRect);
+			renderTexture(renderer, BurstMotions[frame], nullptr, &bullet.spriteRect);
 		}
 		else
 		{
-			SDL_RenderCopy(renderer, bulletTexture, nullptr, &bullet.spriteRect);
+			renderTexture(renderer, bulletTexture, nullptr, &bullet.spriteRect);
 		}
 	}
 }
@@ -1640,17 +1640,17 @@ void renderPlayerHealth(SDL_Renderer* renderer, const PLAYER& player, SDL_Textur
 		if (player.HP >= (i + 1) * 2)
 		{
 			// 绘制满心
-			SDL_RenderCopy(renderer, full_heart, nullptr, &heartRect);
+			renderTexture(renderer, full_heart, nullptr, &heartRect);
 		}
 		else if (player.HP == (i * 2) + 1)
 		{
 			// 绘制半心
-			SDL_RenderCopy(renderer, half_heart, nullptr, &heartRect);
+			renderTexture(renderer, half_heart, nullptr, &heartRect);
 		}
 		else
 		{
 			// 绘制空心
-			SDL_RenderCopy(renderer, empty_heart, nullptr, &heartRect);
+			renderTexture(renderer, empty_heart, nullptr, &heartRect);
 		}
 	}
 }
@@ -1666,7 +1666,7 @@ void updateMonsters(vector<FLY>& flies, vector<BIGFLY>& bigFlies, vector<SUPERFL
 		if (it->isDying)
 		{
 			// 检查死亡动画是否播放完毕
-			Uint32 currentTime = SDL_GetTicks();
+			Uint64 currentTime = SDL_GetTicks();
 			if (currentTime - it->deathStartTime >= it->deathDuration)
 			{
 				// 死亡动画播放完毕，从容器中移除
@@ -1692,21 +1692,21 @@ void updateMonsters(vector<FLY>& flies, vector<BIGFLY>& bigFlies, vector<SUPERFL
 			it->updatePosition();
 
 			// 检查是否达到攻击间隔
-			Uint32 currentTime = SDL_GetTicks();
+			Uint64 currentTime = SDL_GetTicks();
 			if (!it->isReadyToAttack && currentTime - it->lastShootTime >= it->shootInterval)
 			{
 				it->isReadyToAttack = true; // 设置为准备攻击状态
 			}
 
 			// 碰撞检测（小苍蝇怪与玩家）
-			if (SDL_HasIntersection(&player.bumpbox, &it->bumpbox))
+			if (SDL_HasRectIntersection(&player.bumpbox, &it->bumpbox))
 			{
 				if (!player.isInvincible)
 				{
 					// 如果不在无敌状态
 					player.HP -= it->damage;
 					playHurtGrunt(); // 播放受伤音效
-					Mix_PlayChannel(-1, hurt_grunt, 0);
+					playSound(hurt_grunt);
 					player.isInvincible = true; // 开始无敌状态
 					player.invincibleStartTime = SDL_GetTicks(); // 记录无敌开始时间
 				}
@@ -1722,7 +1722,7 @@ void updateMonsters(vector<FLY>& flies, vector<BIGFLY>& bigFlies, vector<SUPERFL
 		if (it->isDying)
 		{
 			// 检查死亡动画是否播放完毕
-			Uint32 currentTime = SDL_GetTicks();
+			Uint64 currentTime = SDL_GetTicks();
 			if (currentTime - it->deathStartTime >= it->deathDuration)
 			{
 				// 死亡动画播放完毕，从容器中移除
@@ -1744,14 +1744,14 @@ void updateMonsters(vector<FLY>& flies, vector<BIGFLY>& bigFlies, vector<SUPERFL
 			it->move();
 
 			// 碰撞检测（大苍蝇怪与玩家）
-			if (SDL_HasIntersection(&player.bumpbox, &it->bumpbox))
+			if (SDL_HasRectIntersection(&player.bumpbox, &it->bumpbox))
 			{
 				if (!player.isInvincible)
 				{
 					// 如果不在无敌状态
 					player.HP -= it->damage;
 					playHurtGrunt(); // 播放受伤音效
-					Mix_PlayChannel(-1, hurt_grunt, 0);
+					playSound(hurt_grunt);
 					player.isInvincible = true; // 开始无敌状态
 					player.invincibleStartTime = SDL_GetTicks(); // 记录无敌开始时间
 				}
@@ -1767,7 +1767,7 @@ void updateMonsters(vector<FLY>& flies, vector<BIGFLY>& bigFlies, vector<SUPERFL
 		if (it->isDying)
 		{
 			// 检查死亡动画是否播放完毕
-			Uint32 currentTime = SDL_GetTicks();
+			Uint64 currentTime = SDL_GetTicks();
 			if (currentTime - it->deathStartTime >= it->deathDuration)
 			{
 				// 死亡动画播放完毕，从容器中移除
@@ -1793,21 +1793,21 @@ void updateMonsters(vector<FLY>& flies, vector<BIGFLY>& bigFlies, vector<SUPERFL
 			it->updatePosition();
 
 			// 检查是否达到攻击间隔
-			Uint32 currentTime = SDL_GetTicks();
+			Uint64 currentTime = SDL_GetTicks();
 			if (!it->isReadyToAttack && currentTime - it->lastShootTime >= it->shootInterval)
 			{
 				it->isReadyToAttack = true; // 设置为准备攻击状态
 			}
 
 			// 碰撞检测（超级苍蝇怪与玩家）
-			if (SDL_HasIntersection(&player.bumpbox, &it->bumpbox))
+			if (SDL_HasRectIntersection(&player.bumpbox, &it->bumpbox))
 			{
 				if (!player.isInvincible)
 				{
 					// 如果不在无敌状态
 					player.HP -= it->damage;
 					playHurtGrunt(); // 播放受伤音效
-					Mix_PlayChannel(-1, hurt_grunt, 0);
+					playSound(hurt_grunt);
 					player.isInvincible = true; // 开始无敌状态
 					player.invincibleStartTime = SDL_GetTicks(); // 记录无敌开始时间
 				}
@@ -1825,47 +1825,47 @@ void renderGameOverScreen(SDL_Renderer* renderer, TTF_Font* font, int window_wid
 {
 	//设置背景为endmenu
 	SDL_RenderClear(renderer);
-	SDL_RenderCopy(renderer, endmenu, nullptr, nullptr);
+	renderTexture(renderer, endmenu, nullptr, nullptr);
 
 	// 渲染 "Game Over" 文字
 	SDL_Color blackColor = {0, 0, 0};
-	SDL_Surface* gameOverSurface = TTF_RenderText_Solid(font, "Game Over", blackColor);
+	SDL_Surface* gameOverSurface = TTF_RenderText_Blended(font, "Game Over", 0, blackColor);
 	SDL_Texture* gameOverTexture = SDL_CreateTextureFromSurface(renderer, gameOverSurface);
 	SDL_Rect gameOverRect;
 	gameOverRect.w = gameOverSurface->w * 4;
 	gameOverRect.h = gameOverSurface->h * 4;
 	gameOverRect.x = (window_width - gameOverRect.w) / 2;
 	gameOverRect.y = (window_height - gameOverRect.h) / 2 - 100;
-	SDL_RenderCopy(renderer, gameOverTexture, nullptr, &gameOverRect);
+	renderTexture(renderer, gameOverTexture, nullptr, &gameOverRect);
 
 	// 渲染 "The number of rooms you passed: " 文字
 	string roomPassed = "The number of rooms you passed: " + to_string(room_number - 1);
-	SDL_Surface* roomPassedSurface = TTF_RenderText_Solid(font, roomPassed.c_str(), blackColor);
+	SDL_Surface* roomPassedSurface = TTF_RenderText_Blended(font, roomPassed.c_str(), 0, blackColor);
 	SDL_Texture* roomPassedTexture = SDL_CreateTextureFromSurface(renderer, roomPassedSurface);
 	SDL_Rect roomPassedRect;
 	roomPassedRect.w = roomPassedSurface->w;
 	roomPassedRect.h = roomPassedSurface->h;
 	roomPassedRect.x = (window_width - roomPassedRect.w) / 2;
 	roomPassedRect.y = (window_height - roomPassedRect.h) / 2;
-	SDL_RenderCopy(renderer, roomPassedTexture, nullptr, &roomPassedRect);
+	renderTexture(renderer, roomPassedTexture, nullptr, &roomPassedRect);
 
 	// 渲染 "Press Enter to Restart or Esc to Exit" 文字
-	SDL_Surface* exitSurface = TTF_RenderText_Solid(font, "Press Enter to Restart or Esc to Exit", blackColor);
+	SDL_Surface* exitSurface = TTF_RenderText_Blended(font, "Press Enter to Restart or Esc to Exit", 0, blackColor);
 	SDL_Texture* exitTexture = SDL_CreateTextureFromSurface(renderer, exitSurface);
 	SDL_Rect exitRect;
 	exitRect.w = exitSurface->w;
 	exitRect.h = exitSurface->h;
 	exitRect.x = (window_width - exitRect.w) / 2;
 	exitRect.y = (window_height - exitRect.h) / 2 + 50;
-	SDL_RenderCopy(renderer, exitTexture, nullptr, &exitRect);
+	renderTexture(renderer, exitTexture, nullptr, &exitRect);
 
 	// 更新屏幕
 	SDL_RenderPresent(renderer);
 
 	// 释放资源
-	SDL_FreeSurface(gameOverSurface);
+	SDL_DestroySurface(gameOverSurface);
 	SDL_DestroyTexture(gameOverTexture);
-	SDL_FreeSurface(exitSurface);
+	SDL_DestroySurface(exitSurface);
 	SDL_DestroyTexture(exitTexture);
 }
 
@@ -1874,7 +1874,7 @@ void renderPauseScreen(SDL_Renderer* renderer, TTF_Font* font, int window_width,
                        SDL_Texture* pausemenu)
 {
 	SDL_RenderClear(renderer);
-	SDL_RenderCopy(renderer, pausemenu, nullptr, nullptr);
+	renderTexture(renderer, pausemenu, nullptr, nullptr);
 	// 更新屏幕
 	SDL_RenderPresent(renderer);
 }
@@ -1885,23 +1885,16 @@ void renderPauseScreen(SDL_Renderer* renderer, TTF_Font* font, int window_width,
 int main(int argc, char* argv[])
 {
 	// 初始化SDL
-	if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
-	{
-		SDL_Log("Unable to initialize SDL: %s", SDL_GetError());
-		return 1;
-	}
-
-	//初始化 SDL 音频子系统
-	if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO) != 0)
+	if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO))
 	{
 		SDL_Log("Unable to initialize SDL: %s", SDL_GetError());
 		return 1;
 	}
 
 	// 初始化 SDL ttf
-	if (TTF_Init() == -1)
+	if (!TTF_Init())
 	{
-		SDL_Log("TTF_Init: %s\n", TTF_GetError());
+		SDL_Log("TTF_Init: %s\n", SDL_GetError());
 		return 1;
 	}
 	
@@ -1913,16 +1906,17 @@ int main(int argc, char* argv[])
 
 	// 获取屏幕大小
 	SDL_Rect screen_rect;
-	SDL_GetDisplayBounds(0, &screen_rect);
+	SDL_GetDisplayBounds(SDL_GetPrimaryDisplay(), &screen_rect);
 
 	// 创建窗口
 	int x = screen_rect.w / 2 - window_width / 2;
 	int y = screen_rect.h / 2 - window_height / 2;
-	SDL_Window* window = SDL_CreateWindow("The Binding of Isaac", x, y,
-	                                      window_width, window_height, SDL_WINDOW_SHOWN);
+	SDL_Window* window = SDL_CreateWindow("The Binding of Isaac", window_width, window_height, 0);
+	SDL_SetWindowPosition(window, x, y);
 
 	// 创建渲染
-	SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
+	SDL_SetRenderVSync(renderer, 1);
 
 
 	// 加载字体
@@ -1951,12 +1945,12 @@ int main(int argc, char* argv[])
 	playOpeningVideoSound();
 	if (opening_video_sound == nullptr)
 	{
-		SDL_Log("Failed to load beat music! SDL_mixer Error: %s", Mix_GetError());
+		SDL_Log("Failed to load beat music! SDL_mixer Error: %s", SDL_GetError());
 		return 1;
 	}
-	Mix_PlayMusic(opening_video_sound, -1);
+	playMusic(opening_video_sound);
 	playVideo("ISAAC/video/openingvideo.mp4", renderer);
-	Mix_FreeMusic(opening_video_sound);
+	MIX_DestroyAudio(opening_video_sound);
 	bool startGame = false;
 
 
@@ -1965,17 +1959,17 @@ int main(int argc, char* argv[])
 	playTitleScreenSound();
 	if (title_screen_sound == nullptr)
 	{
-		SDL_Log("Failed to load beat music! SDL_mixer Error: %s", Mix_GetError());
+		SDL_Log("Failed to load beat music! SDL_mixer Error: %s", SDL_GetError());
 		return 1;
 	}
-	Mix_PlayMusic(title_screen_sound, -1);
+	playMusic(title_screen_sound);
 
 
 	// 创建开始界面纹理
 	SDL_Texture* start_screen = IMG_LoadTexture(renderer, "ISAAC/Backgrounds/start_screen.png");
 	if (start_screen == nullptr)
 	{
-		SDL_Log("Failed to load start screen texture: %s", IMG_GetError());
+		SDL_Log("Failed to load start screen texture: %s", SDL_GetError());
 		return 1;
 	}
 
@@ -1984,14 +1978,14 @@ int main(int argc, char* argv[])
 		// 处理事件
 		while (SDL_PollEvent(&event))
 		{
-			if (event.type == SDL_QUIT)
+			if (event.type == SDL_EVENT_QUIT)
 			{
 				isquit = true;
 			}
-			if (event.type == SDL_KEYDOWN)
+			if (event.type == SDL_EVENT_KEY_DOWN)
 			{
 				// 当用户按下回车键时，开始游戏
-				if (event.key.keysym.sym == SDLK_RETURN)
+				if (event.key.key == SDLK_RETURN)
 				{
 					startGame = true;
 				}
@@ -2002,7 +1996,7 @@ int main(int argc, char* argv[])
 		SDL_RenderClear(renderer);
 
 		// 渲染开始界面
-		SDL_RenderCopy(renderer, start_screen, nullptr, nullptr);
+		renderTexture(renderer, start_screen, nullptr, nullptr);
 
 		SDL_Delay(16); // 控制帧率
 
@@ -2025,10 +2019,10 @@ int main(int argc, char* argv[])
 	playMainMusic();
 	if (main_music == nullptr)
 	{
-		SDL_Log("Failed to load beat music! SDL_mixer Error: %s", Mix_GetError());
+		SDL_Log("Failed to load beat music! SDL_mixer Error: %s", SDL_GetError());
 		return 1;
 	}
-	Mix_PlayMusic(main_music, -1);
+	playMusic(main_music);
 
 
 	/* 创建房间纹理 */
@@ -2058,7 +2052,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
+			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), SDL_GetError());
 		}
 	}
 	vector<SDL_Texture*> FrontMotions;
@@ -2072,7 +2066,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
+			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), SDL_GetError());
 		}
 	}
 	vector<SDL_Texture*> RightMotions;
@@ -2086,7 +2080,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
+			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), SDL_GetError());
 		}
 	}
 	vector<SDL_Texture*> LeftMotions;
@@ -2100,7 +2094,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
+			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), SDL_GetError());
 		}
 	}
 	vector<SDL_Texture*> BackHeadMotions;
@@ -2114,7 +2108,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
+			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), SDL_GetError());
 		}
 	}
 	vector<SDL_Texture*> FrontHeadMotions;
@@ -2128,7 +2122,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
+			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), SDL_GetError());
 		}
 	}
 	vector<SDL_Texture*> RightHeadMotions;
@@ -2142,7 +2136,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
+			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), SDL_GetError());
 		}
 	}
 	vector<SDL_Texture*> LeftHeadMotions;
@@ -2156,7 +2150,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
+			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), SDL_GetError());
 		}
 	}
 	vector<SDL_Texture*> BurstMotions;
@@ -2170,7 +2164,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
+			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), SDL_GetError());
 		}
 	}
 	vector<SDL_Texture*> EnemyBurstMotions;
@@ -2184,7 +2178,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
+			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), SDL_GetError());
 		}
 	}
 	vector<SDL_Texture*> FlyMotions;
@@ -2198,7 +2192,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
+			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), SDL_GetError());
 		}
 	}
 	vector<SDL_Texture*> _FlyMotions;
@@ -2212,7 +2206,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
+			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), SDL_GetError());
 		}
 	}
 	vector<SDL_Texture*> FlyDeadMotions;
@@ -2226,7 +2220,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
+			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), SDL_GetError());
 		}
 	}
 	vector<SDL_Texture*> BigFlyMotions;
@@ -2240,7 +2234,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), IMG_GetError());
+			SDL_Log("Failed to load texture: %s, Error: %s", filename.c_str(), SDL_GetError());
 		}
 	}
 
@@ -2248,26 +2242,26 @@ int main(int argc, char* argv[])
 	/* 初始化纹理位置 */
 	//头部位
 	SDL_Rect headrect;
-	SDL_QueryTexture(BackHeadMotions[0], nullptr, nullptr, &headrect.w, &headrect.h);
+	queryTextureSize(BackHeadMotions[0], &headrect.w, &headrect.h);
 	headrect.w *= 3;
 	headrect.h *= 3;
 	headrect.x = window_width / 2 - headrect.w / 2;
 	headrect.y = window_height / 2 - headrect.h / 2 - 12;
 	//身体位
 	SDL_Rect bodyrect;
-	SDL_QueryTexture(BackMotions[0], nullptr, nullptr, &bodyrect.w, &bodyrect.h);
+	queryTextureSize(BackMotions[0], &bodyrect.w, &bodyrect.h);
 	bodyrect.w *= 3;
 	bodyrect.h *= 3;
 	bodyrect.x = window_width / 2 - bodyrect.w / 2;
 	bodyrect.y = window_height / 2 - bodyrect.h / 2 + 12;
 
-	Uint32 last_shoot_time = SDL_GetTicks(); // 上次射击时间
+	Uint64 last_shoot_time = SDL_GetTicks(); // 上次射击时间
 	bool is_attacking = false; // 是否正在攻击
-	Uint32 attack_start_time = 0; // 攻击开始时间
+	Uint64 attack_start_time = 0; // 攻击开始时间
 	PLAYER isaac(bodyrect.x, bodyrect.y, headrect.w, headrect.h, 12, 2, 3.5, 3, 7, 500); // 创建角色
 
 
-	Uint32 switch_start_time = 0; // 切换房间开始时间
+	Uint64 switch_start_time = 0; // 切换房间开始时间
 	bool switching_room = false; // 是否正在切换房间
 	bool black_screen = false; // 是否处于黑屏状态
 	int isClear = 1; // 是否清理完怪物
@@ -2277,29 +2271,29 @@ int main(int argc, char* argv[])
 		if (isPause)
 		{
 			// 暂停音乐
-			Mix_PauseMusic();
+			MIX_PauseAllTracks(audioMixer);
 			// 显示暂停界面
 			renderPauseScreen(renderer, ttfFont, window_width, window_height, pause_menu);
 			while (isPause)
 			{
 				while (SDL_PollEvent(&event))
 				{
-					if (event.type == SDL_QUIT)
+					if (event.type == SDL_EVENT_QUIT)
 					{
 						isquit = true;
 						isPause = false;
 					}
-					if (event.type == SDL_KEYDOWN)
+					if (event.type == SDL_EVENT_KEY_DOWN)
 					{
-						if (event.key.keysym.sym == SDLK_ESCAPE)
+						if (event.key.key == SDLK_ESCAPE)
 						{
 							isquit = true;
 							isPause = false;
 						}
-						if (event.key.keysym.sym == SDLK_RETURN)
+						if (event.key.key == SDLK_RETURN)
 						{
 							// 继续游戏
-							Mix_ResumeMusic();
+							MIX_ResumeAllTracks(audioMixer);
 							isPause = false;
 						}
 					}
@@ -2313,10 +2307,10 @@ int main(int argc, char* argv[])
 		{
 			// 播放死亡音效
 			playDeathGrunt();
-			Mix_PlayChannel(-1, death_grunt, 0);
+			playSound(death_grunt);
 			// 播放死亡界面音乐
 			playEndingSound();
-			Mix_PlayMusic(ending_sound, -1);
+			playMusic(ending_sound);
 			// 显示结束界面
 			renderGameOverScreen(renderer, ttfFont, window_width, window_height, end_menu);
 			// 等待用户按下回车键重新开始或按下ESC键退出游戏
@@ -2325,17 +2319,17 @@ int main(int argc, char* argv[])
 			{
 				while (SDL_PollEvent(&event))
 				{
-					if (event.type == SDL_QUIT)
+					if (event.type == SDL_EVENT_QUIT)
 					{
 						isquit = true;
 						gameOver = false;
 					}
-					if (event.type == SDL_KEYDOWN)
+					if (event.type == SDL_EVENT_KEY_DOWN)
 					{
-						if (event.key.keysym.sym == SDLK_RETURN)
+						if (event.key.key == SDLK_RETURN)
 						{
 							playMainMusic();
-							Mix_PlayMusic(main_music, -1);
+							playMusic(main_music);
 							// 重新开始游戏
 							isaac.HP = 12; // 重置角色血量
 							isaac.x = window_width / 2; // 重置角色位置
@@ -2354,7 +2348,7 @@ int main(int argc, char* argv[])
 							generateMonsters(room_number, isaac); // 重新生成怪物
 							gameOver = false;
 						}
-						if (event.key.keysym.sym == SDLK_ESCAPE)
+						if (event.key.key == SDLK_ESCAPE)
 						{
 							isquit = true;
 							gameOver = false;
@@ -2383,8 +2377,8 @@ int main(int argc, char* argv[])
 
 		// 渲染背景
 		SDL_RenderClear(renderer);
-		SDL_RenderCopy(renderer, black, nullptr, nullptr);
-		SDL_RenderCopy(renderer, basement, nullptr, nullptr);
+		renderTexture(renderer, black, nullptr, nullptr);
+		renderTexture(renderer, basement, nullptr, nullptr);
 
 
 		// 更新角色位置
@@ -2425,17 +2419,17 @@ int main(int argc, char* argv[])
 		SDL_RenderClear(renderer);
 		if (black_screen)
 		{
-			SDL_RenderCopy(renderer, black, nullptr, nullptr);
+			renderTexture(renderer, black, nullptr, nullptr);
 		}
 		else
 		{
-			SDL_RenderCopy(renderer, basement, nullptr, nullptr);
+			renderTexture(renderer, basement, nullptr, nullptr);
 		}
 
 		// 渲染障碍物
 		for (const auto& obstacle : Obstacles)
 		{
-			SDL_RenderCopy(renderer, obstacle.texture, nullptr, &obstacle.rect);
+			renderTexture(renderer, obstacle.texture, nullptr, &obstacle.rect);
 		}
 
 
@@ -2445,7 +2439,7 @@ int main(int argc, char* argv[])
 			if (isClear == room_number)
 			{
 				playClearMusic();
-				Mix_PlayChannel(-1, clear_music, 0);
+				playSound(clear_music);
 
 				// 随机掉落红心
 				uniform_real_distribution<double> u(0, 1);
@@ -2484,26 +2478,26 @@ int main(int argc, char* argv[])
 			// 设置绘制颜色为红色
 			SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
 			// 绘制角色的碰撞箱
-			SDL_RenderDrawRect(renderer, &isaac.bumpbox);
+			renderRect(renderer, &isaac.bumpbox);
 			// 绘制苍蝇怪的碰撞箱
 			for (const auto& fly : Flies)
 			{
-				SDL_RenderDrawRect(renderer, &fly.bumpbox);
+				renderRect(renderer, &fly.bumpbox);
 			}
 			// 绘制大苍蝇怪的碰撞箱
 			for (const auto& bigFly : BigFlies)
 			{
-				SDL_RenderDrawRect(renderer, &bigFly.bumpbox);
+				renderRect(renderer, &bigFly.bumpbox);
 			}
 			// 绘制子弹的碰撞箱
 			for (const auto& bullet : Bullets)
 			{
-				SDL_RenderDrawRect(renderer, &bullet.bumpbox);
+				renderRect(renderer, &bullet.bumpbox);
 			}
 			// 绘制障碍物的碰撞箱
 			for (const auto& obstacle : Obstacles)
 			{
-				SDL_RenderDrawRect(renderer, &obstacle.collisionRect);
+				renderRect(renderer, &obstacle.collisionRect);
 			}
 
 
@@ -2589,7 +2583,7 @@ int main(int argc, char* argv[])
 				}
 				if (!heart.isPickedUp)
 				{
-					SDL_RenderCopy(renderer, red_heart, nullptr, &heart.bumpbox);
+					renderTexture(renderer, red_heart, nullptr, &heart.bumpbox);
 				}
 			}
 		}

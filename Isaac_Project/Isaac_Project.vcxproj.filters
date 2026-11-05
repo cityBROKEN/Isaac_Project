@@ -32,5 +32,8 @@
     <ClInclude Include="framework.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="SDL3Compat.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
